@@ -1,7 +1,18 @@
+// Load environment variables
+require('dotenv').config();
+
 const DiscordAIBot = require('./src/discord-ai-bot');
 
 async function startDiscordBot() {
   console.log('🤖 Starting Fantasy AI Discord Chat Bot...\n');
+  
+  // Debug environment variables in production
+  if (process.env.NODE_ENV === 'production') {
+    console.log('🔍 Environment check:');
+    console.log('- NODE_ENV:', process.env.NODE_ENV);
+    console.log('- Discord Token:', process.env.DISCORD_BOT_TOKEN ? '✅ Found' : '❌ Missing');
+    console.log('- Claude API Key:', process.env.CLAUDE_API_KEY ? '✅ Found' : '❌ Missing');
+  }
   
   // Check if Discord.js is installed
   try {
