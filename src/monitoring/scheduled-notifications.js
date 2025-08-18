@@ -57,6 +57,14 @@ class ScheduledNotifications {
       timezone: 'America/New_York'
     });
 
+    // TEST: Force evening report in 2 minutes (for testing)
+    cron.schedule('*/5 * * * *', async () => {
+      logger.info('🧪 TEST: Forcing evening report for demonstration');
+      await this.sendEveningReport();
+    }, {
+      timezone: 'America/New_York'
+    });
+
     // HOURLY CRITICAL MONITORING (during peak hours 8 AM - 10 PM)
     cron.schedule('0 8-22 * * *', async () => {
       await this.checkCriticalUpdates();
