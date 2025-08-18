@@ -24,8 +24,9 @@ class TwitterMonitor {
       }
     });
     
-    // Twitter RSS feeds (no API keys required)
+    // Twitter RSS feeds (temporarily disabled due to connection issues)
     this.twitterFeeds = {
+      /* DISABLED UNTIL RSS FEEDS FIXED
       // NFL Insiders (CRITICAL for breaking news)
       schefter: {
         name: 'Adam Schefter',
@@ -82,12 +83,13 @@ class TwitterMonitor {
         category: 'transactions'
       },
       rotoworld_football: {
-        name: 'RotoWorld Football',
+        name: 'RotoWorld Football', 
         rss: 'https://rss.app/feeds/twitter/Rotoworld_FB.xml',
         priority: 'HIGH',
         category: 'player_news'
       }
-    };
+      */ 
+    }; // EMPTY - Twitter feeds disabled
 
     // Critical keywords for draft impact
     this.draftKeywords = [

@@ -43,7 +43,16 @@ class ScheduledNotifications {
 
     // DAILY EVENING WRAP-UP (6:00 PM EST)
     cron.schedule('0 18 * * *', async () => {
+      logger.info('🌆 Evening report scheduled task triggered at 6 PM EST');
       await this.sendEveningReport();
+    }, {
+      timezone: 'America/New_York'
+    });
+
+    // TEST: Every 2 minutes for debugging
+    cron.schedule('*/2 * * * *', async () => {
+      const now = new Date();
+      logger.info(`🔔 Cron test ping: ${now.toLocaleString('en-US', {timeZone: 'America/New_York'})} EST`);
     }, {
       timezone: 'America/New_York'
     });
