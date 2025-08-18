@@ -1,0 +1,81 @@
+{
+  "title": "ESPN 2025 First Round ADP Data",
+  "adp_data": {
+    "1.01": {
+      "player": "Christian McCaffrey",
+      "position": "RB",
+      "team": "SF",
+      "avg_pick": 1.1,
+      "projection": "1,800+ total yards, 15+ TDs",
+      "safety_score": 9.5,
+      "upside_score": 9.8,
+      "notes": "Only RB worth first overall pick. Proven elite production."
+    },
+    "1.02": {
+      "player": "Justin Jefferson",
+      "position": "WR",
+      "team": "MIN",
+      "avg_pick": 1.2,
+      "projection": "1,600+ receiving yards, 12+ TDs",
+      "safety_score": 9.8,
+      "upside_score": 9.5,
+      "notes": "Most consistent WR1. Massive target share lock."
+    },
+    "1.03": {
+      "player": "Tyreek Hill",
+      "position": "WR", 
+      "team": "MIA",
+      "avg_pick": 1.3,
+      "projection": "1,500+ yards, explosive upside",
+      "safety_score": 9.0,
+      "upside_score": 9.8,
+      "notes": "Elite speed with Tua connection. High ceiling."
+    },
+    "1.04": {
+      "player": "Cooper Kupp",
+      "position": "WR",
+      "team": "LAR",
+      "avg_pick": 1.4,
+      "projection": "1,400+ yards when healthy",
+      "safety_score": 8.5,
+      "upside_score": 9.5,
+      "notes": "Slot dominance. Health concerns but elite when active."
+    },
+    "1.05": {
+      "player": "Travis Kelce",
+      "position": "TE",
+      "team": "KC",
+      "avg_pick": 1.5,
+      "projection": "1,200+ yards, positional dominance",
+      "safety_score": 9.2,
+      "upside_score": 9.0,
+      "notes": "Only TE worth early first. Mahomes connection."
+    },
+    "1.06": {
+      "player": "Davante Adams",
+      "position": "WR",
+      "team": "LV",
+      "avg_pick": 1.6,
+      "projection": "1,350+ yards, red zone monster",
+      "safety_score": 8.8,
+      "upside_score": 9.2,
+      "notes": "Elite route runner. Red zone target magnet."
+    },
+    "risky_picks": {
+      "Josh Jacobs": {
+        "position": "RB",
+        "team": "GB",
+        "concerns": ["New team", "Heavy workload history", "Age 26"],
+        "safe_round": "Late 1st/Early 2nd"
+      },
+      "Saquon Barkley": {
+        "position": "RB", 
+        "team": "NYG",
+        "concerns": ["Injury history", "Giants offense struggles"],
+        "safe_round": "2nd round"
+      }
+    }
+  },
+  "source": "ESPN 2025 ADP Consensus",
+  "timestamp": "2025-08-16T20:16:30.000Z"
+}

@@ -1,0 +1,158 @@
+🤖 DISCORD AI CHAT BOT - REAL-TIME FANTASY COACHING
+
+## 🎯 HOW IT WORKS
+
+Your Fantasy Command Center now includes a Discord AI Chat Bot that acts as your personal fantasy football coach. Here's how it works:
+
+### 💬 ASK QUESTIONS IN DISCORD
+Instead of just receiving notifications, you can now ASK the AI questions directly in Discord:
+
+**Examples:**
+• "!coach Should I draft Josh Jacobs or DeVonta Smith?"
+• "!coach Is the weather going to affect the Bills game?"
+• "!coach Trade advice: my Travis Kelce for their Davante Adams?"
+• "@Fantasy AI Coach Who should I start this week?"
+
+### 🧠 REAL-TIME AI ANALYSIS
+The bot uses Claude AI to provide instant, detailed responses:
+
+1. **Gathers Live Data** - Pulls injury reports, weather, news
+2. **Analyzes Your Question** - Understanding context and intent  
+3. **Provides Expert Advice** - Detailed reasoning and recommendations
+4. **Formats for Discord** - Beautiful embeds with organized information
+
+### ⚡ FEATURES
+
+**Smart Context Awareness:**
+- Detects player names in your questions
+- Automatically pulls latest injury reports
+- Includes weather data for game-related questions
+- Knows current NFL week and draft season
+
+**Expert Analysis:**
+- Draft recommendations with detailed reasoning
+- Start/sit advice with matchup analysis
+- Trade evaluation with fair value assessment
+- Injury impact analysis with backup options
+- Weather impact on player performance
+
+**User-Friendly:**
+- Works in multiple Discord channels
+- Beautiful formatted responses
+- Help command for guidance
+- Typing indicators while processing
+
+## 🛠️ SETUP PROCESS
+
+### Step 1: Create Discord Application
+1. Go to https://discord.com/developers/applications
+2. Click "New Application" 
+3. Name it "Fantasy AI Coach"
+4. Go to "Bot" section
+5. Click "Add Bot"
+6. Copy the Bot Token
+
+### Step 2: Set Bot Permissions
+In the Bot section, enable these permissions:
+- Send Messages
+- Read Message History
+- Use Slash Commands
+- Embed Links
+- Read Messages/View Channels
+
+### Step 3: Add Bot to Your Server
+1. Go to "OAuth2" → "URL Generator"
+2. Select "bot" scope
+3. Select permissions: Send Messages, Read Message History, Embed Links
+4. Copy the generated URL
+5. Visit URL and add bot to your Discord server
+
+### Step 4: Configure Environment
+Add to your .env file:
+```
+DISCORD_BOT_TOKEN=your_bot_token_here
+```
+
+### Step 5: Start the Bot
+```bash
+node start-discord-bot.js
+```
+
+## 💡 USAGE EXAMPLES
+
+### Draft Questions
+**You:** "!coach Should I draft Josh Jacobs in Round 2?"
+**AI:** Detailed analysis including:
+- Josh Jacobs' projected touches and usage
+- Alternative options at that pick
+- Team needs assessment  
+- Risk/reward analysis
+
+### Start/Sit Decisions  
+**You:** "!coach Start Geno Smith or Tua this week?"
+**AI:** Comprehensive comparison including:
+- Matchup analysis for both QBs
+- Weather conditions if relevant
+- Recent performance trends
+- Injury considerations
+
+### Trade Analysis
+**You:** "!coach Trade my Kelce for their Jefferson and Goedert?"
+**AI:** Full trade breakdown including:
+- Value assessment for both sides
+- Positional impact analysis
+- Rest-of-season outlook
+- Win-now vs future considerations
+
+### Weather/Game Script
+**You:** "!coach How will snow affect the Bills vs Dolphins game?"
+**AI:** Weather impact analysis including:
+- Specific game conditions
+- Player-by-player impact
+- Start/sit recommendations
+- Alternative options
+
+## 🎯 SMART FEATURES
+
+**Context Awareness:**
+- Remembers it's draft season vs regular season
+- Knows current NFL week
+- Pulls live injury reports for mentioned players
+- Includes weather data when relevant
+
+**Multiple Activation Methods:**
+- `!coach [question]` - Command prefix
+- `@Fantasy AI Coach [question]` - Direct mention
+- Works in designated channels only
+
+**Rich Responses:**
+- Beautiful Discord embeds
+- Organized information with fields
+- Color-coded by response type
+- Timestamped for reference
+
+## 🔥 GAME-CHANGING BENEFITS
+
+**24/7 Expert Advice:**
+- No more waiting for podcast updates
+- Instant analysis of breaking news
+- Real-time decision support
+
+**Personalized Coaching:**
+- Knows your team context
+- Remembers your league settings
+- Tailored to your questions
+
+**Live Data Integration:**
+- Always current information
+- Weather updates
+- Injury report integration
+- News aggregation
+
+**Discord Native:**
+- No switching between apps
+- Team discussions with AI input
+- Shareable with league mates
+- Mobile friendly
+
+This transforms your Discord server into a 24/7 fantasy football war room with an expert AI coach always ready to help!

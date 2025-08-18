@@ -1,0 +1,22 @@
+🤖 DISCORD BOT INVITE URL
+
+Your bot needs to be added to your Discord server with the right permissions.
+
+Bot Application ID: 1406127175278526475
+
+INVITE URL:
+https://discord.com/api/oauth2/authorize?client_id=1406127175278526475&permissions=2048&scope=bot
+
+PERMISSIONS INCLUDED:
+- Send Messages (required for responses)
+- Read Message History (required to see your questions)
+
+SETUP STEPS:
+1. Click the URL above or copy/paste into browser
+2. Select your Discord server
+3. Click "Authorize" 
+4. Bot will appear in your server member list
+
+Then you can test with:
+!coach help
+!coach How is Travis Kelce looking?

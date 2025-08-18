@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fantasy Command Center</title>
+  <style>
+    body {
+      width: 350px;
+      min-height: 400px;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+    }
+
+    .header {
+      padding: 20px;
+      text-align: center;
+      background: rgba(0,0,0,0.2);
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .header p {
+      margin: 5px 0 0 0;
+      font-size: 12px;
+      opacity: 0.8;
+    }
+
+    .container {
+      padding: 20px;
+    }
+
+    .status-card {
+      background: rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 15px;
+      backdrop-filter: blur(10px);
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .status-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 10px;
+    }
+
+    .status-dot.connected {
+      background: #4CAF50;
+      box-shadow: 0 0 8px rgba(76, 175, 80, 0.6);
+    }
+
+    .status-dot.disconnected {
+      background: #F44336;
+      box-shadow: 0 0 8px rgba(244, 67, 54, 0.6);
+    }
+
+    .status-dot.waiting {
+      background: #FFA500;
+      box-shadow: 0 0 8px rgba(255, 165, 0, 0.6);
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 12px;
+      font-weight: 500;
+      opacity: 0.9;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 8px 12px;
+      border: none;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.9);
+      color: #333;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      background: rgba(255,255,255,1);
+      box-shadow: 0 0 0 2px rgba(255,255,255,0.3);
+    }
+
+    .btn {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 10px;
+    }
+
+    .btn.primary {
+      background: #FF6B35;
+      color: white;
+    }
+
+    .btn.primary:hover {
+      background: #FF5722;
+      transform: translateY(-1px);
+    }
+
+    .btn.secondary {
+      background: rgba(255,255,255,0.2);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.3);
+    }
+
+    .btn.secondary:hover {
+      background: rgba(255,255,255,0.3);
+    }
+
+    .draft-info {
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .draft-info strong {
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .picks-count {
+      background: rgba(255,255,255,0.2);
+      padding: 8px;
+      border-radius: 6px;
+      text-align: center;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .footer {
+      padding: 15px 20px;
+      background: rgba(0,0,0,0.2);
+      text-align: center;
+      font-size: 11px;
+      opacity: 0.7;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .notification {
+      padding: 10px;
+      border-radius: 6px;
+      margin-bottom: 15px;
+      font-size: 12px;
+    }
+
+    .notification.success {
+      background: rgba(76, 175, 80, 0.2);
+      border: 1px solid rgba(76, 175, 80, 0.4);
+    }
+
+    .notification.error {
+      background: rgba(244, 67, 54, 0.2);
+      border: 1px solid rgba(244, 67, 54, 0.4);
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🏈 Fantasy Command Center</h1>
+    <p>Live Draft Monitor</p>
+  </div>
+
+  <div class="container">
+    <!-- Status Section -->
+    <div class="status-card">
+      <div class="status-indicator">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">Checking connection...</span>
+      </div>
+      <div class="draft-info" id="draftInfo">
+        <strong>Draft Status:</strong>
+        <span id="draftStatus">Not monitoring</span>
+      </div>
+    </div>
+
+    <!-- Notification Area -->
+    <div id="notification" class="notification hidden"></div>
+
+    <!-- Configuration Section -->
+    <div class="status-card">
+      <div class="form-group">
+        <label for="discordWebhook">Discord Webhook URL:</label>
+        <input type="url" id="discordWebhook" placeholder="https://discord.com/api/webhooks/...">
+      </div>
+      
+      <div class="form-group">
+        <label for="teamId">Your Team ID:</label>
+        <input type="number" id="teamId" placeholder="2" min="1" max="20">
+      </div>
+
+      <button class="btn primary" id="saveConfig">Save Configuration</button>
+    </div>
+
+    <!-- Draft Controls -->
+    <div class="status-card">
+      <div class="picks-count" id="picksCount">
+        0 picks detected
+      </div>
+      
+      <button class="btn secondary" id="testConnection">Test Discord Connection</button>
+      <button class="btn secondary" id="exportDraft">Export Draft Results</button>
+      <button class="btn secondary" id="refreshStatus">Refresh Status</button>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="status-card">
+      <div class="form-group">
+        <label>Quick Actions:</label>
+      </div>
+      <button class="btn secondary" id="openEspnDraft">Open ESPN Draft</button>
+      <button class="btn secondary" id="openDiscord">Open Discord</button>
+    </div>
+  </div>
+
+  <div class="footer">
+    Fantasy Command Center v1.0.0<br>
+    Real-time ESPN → Discord Integration
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
