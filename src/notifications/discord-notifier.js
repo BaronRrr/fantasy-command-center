@@ -41,6 +41,28 @@ class DiscordNotifier {
     }
   }
 
+  // New method for sending embeds directly (used by scheduled notifications)
+  async sendEmbed(embed, priority = 'INFO') {
+    if (!this.webhookUrl) {
+      console.log('📢 NOTIFICATION (Discord disabled):');
+      console.log(`   ${embed.title}`);
+      console.log(`   ${embed.description}`);
+      return;
+    }
+
+    try {
+      const payload = { embeds: [embed] };
+      await axios.post(this.webhookUrl, payload);
+      console.log(`✅ Discord embed sent (${priority})`);
+
+    } catch (error) {
+      console.error('❌ Failed to send Discord embed:', error.message);
+      console.log('📢 EMBED:');
+      console.log(`   ${embed.title}`);
+      console.log(`   ${embed.description}`);
+    }
+  }
+
   async sendDraftAlert(pick) {
     const notification = {
       title: pick.isYour ? '🎯 YOUR DRAFT PICK!' : '📊 Draft Pick',
