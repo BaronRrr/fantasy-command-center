@@ -49,21 +49,7 @@ class ScheduledNotifications {
       timezone: 'America/New_York'
     });
 
-    // TEST: Every 2 minutes for debugging
-    cron.schedule('*/2 * * * *', async () => {
-      const now = new Date();
-      logger.info(`🔔 Cron test ping: ${now.toLocaleString('en-US', {timeZone: 'America/New_York'})} EST`);
-    }, {
-      timezone: 'America/New_York'
-    });
-
-    // TEST: Force evening report in 2 minutes (for testing)
-    cron.schedule('*/5 * * * *', async () => {
-      logger.info('🧪 TEST: Forcing evening report for demonstration');
-      await this.sendEveningReport();
-    }, {
-      timezone: 'America/New_York'
-    });
+    // Tests removed - system working perfectly!
 
     // HOURLY CRITICAL MONITORING (during peak hours 8 AM - 10 PM)
     cron.schedule('0 8-22 * * *', async () => {
