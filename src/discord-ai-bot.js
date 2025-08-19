@@ -2352,7 +2352,7 @@ Make it ESPN-quality analysis with specific fantasy advice. No generic content.`
       logger.info('🔥 Generating trending players analysis...');
       
       // Try to fetch recent news first
-      const recentNews = await this.newsFetcher.fetchFantasyNews(15);
+      const recentNews = await this.newsArticleFetcher.fetchLatestArticles(15);
       
       let trendingPrompt;
       let analysisSource;
