@@ -2417,17 +2417,33 @@ ${trendingText}
 💡 **Tip:** Use \`.intel <player>\` for detailed player analysis`;
 
     } catch (error) {
-      logger.error('Error in trending command:', error.message);
-      return `❌ Failed to generate trending analysis. Please try again later.
+      logger.error('Error in trending command:', error);
+      logger.error('Error stack:', error.stack);
+      
+      // More specific error handling
+      if (error.message && error.message.includes('Claude')) {
+        return `❌ AI analysis service temporarily unavailable. 
 
-🔥 **Offseason Focus Areas:**
-• **Rising ADP:** Players climbing in average draft position
-• **Situation Changes:** New team, coaching staff, or role changes
-• **Rookie Watch:** High-upside first-year players
-• **Sleeper Picks:** Under-the-radar value candidates
-• **Position Battles:** Camp competitions affecting fantasy value
+🔥 **Current Focus Areas:**
+• **Trade Targets:** Look for undervalued players
+• **Waiver Pickups:** High-upside adds available
+• **Sell High:** Players with inflated value  
+• **Buy Low:** Struggling players with potential
+• **Streaming Options:** Position-specific plays
 
-💡 **Draft Prep:** Focus on ADP trends and roster construction!`;
+💡 Use \`.news\` for latest player updates!`;
+      }
+      
+      return `❌ Failed to generate trending analysis: ${error.message}
+
+🔥 **Manual Trending Categories:**
+• **Breakout Watch:** Players showing increased usage
+• **Injury Returns:** Players coming back from IR
+• **Rookie Impact:** First-year players gaining roles
+• **Trade Rumors:** Players potentially changing teams
+• **Depth Chart:** Backup players getting opportunities
+
+💡 **Tip:** Monitor waiver wire and trade markets!`;
     }
   }
 
