@@ -106,7 +106,8 @@ class SimpleTrendingAnalyzer {
             title: title,
             score: score,
             comments: comments,
-            hoursOld: hoursOld
+            hoursOld: hoursOld,
+            permalink: post.data.permalink
           });
 
           // Extract trending reason from title
@@ -228,10 +229,15 @@ class SimpleTrendingAnalyzer {
       // Show the actual Reddit post title instead of generic categories
       if (player.topPost && player.topPost.title) {
         let title = player.topPost.title;
-        if (title.length > 85) {
-          title = title.substring(0, 82) + '...';
+        if (title.length > 120) {
+          title = title.substring(0, 117) + '...';
         }
         response += `🔥 "${title}"\n`;
+        
+        // Add Reddit link if available
+        if (player.topPost.permalink) {
+          response += `🔗 [Read Discussion](https://reddit.com${player.topPost.permalink})\n`;
+        }
       } else {
         response += `📈 **${player.primaryReason}**\n`;
       }
