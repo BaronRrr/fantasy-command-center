@@ -2349,27 +2349,61 @@ Make it ESPN-quality analysis with specific fantasy advice. No generic content.`
   // Trending players command handler
   async handleTrendingCommand() {
     try {
-      return `📈 **Trending Players Analysis**
+      logger.info('🔥 Generating trending players analysis...');
+      
+      // Fetch recent news for trending analysis
+      const recentNews = await this.newsFetcher.fetchFantasyNews(15); // Get more articles for better analysis
+      
+      if (!recentNews || recentNews.length === 0) {
+        return '❌ Unable to fetch recent news for trending analysis. Please try again later.';
+      }
+      
+      // Create trending analysis prompt
+      const newsContent = recentNews.map(article => 
+        `${article.title}\n${article.summary || article.description || ''}`
+      ).join('\n\n');
+      
+      const trendingPrompt = `Analyze these recent fantasy football news articles and identify the top 5 trending players right now. Focus on players getting significant buzz, breakout potential, or major news impacts.
 
-🔄 **Social Media Monitoring:** Coming Soon
-📊 **Reddit Sentiment Tracking:** In Development
-🐦 **Twitter Buzz Analysis:** Being Implemented
+Recent Fantasy News:
+${newsContent}
 
-**Current Available Data:**
-• Fantasy news article analysis
-• Expert consensus rankings
-• Recent injury report impacts
+Provide:
+1. Top 5 trending players with brief explanations
+2. Why each player is trending (injury, breakout, news, etc.)
+3. Fantasy impact rating (1-10)
+4. Action recommendation (add, hold, drop, trade)
 
-💡 **What's Coming:**
-• Real-time Reddit discussion analysis
-• Twitter mention trending
-• Fantasy expert tweet aggregation
-• Breakout player detection
+Format as clear bullet points. Keep each player analysis under 100 characters. Be actionable and specific.`;
 
-Use \`/news\` for current fantasy headlines and trends!`;
+      const analysis = await this.claudeClient.makeRequest([{
+        role: 'user',
+        content: trendingPrompt
+      }], 'You are a fantasy football trending analyst. Be concise and actionable.');
+
+      const trendingText = typeof analysis === 'string' ? analysis : 
+                          analysis.content?.[0]?.text || analysis.text || analysis.message || 
+                          'Unable to generate trending analysis.';
+
+      return `🔥 **Trending Players Right Now**
+
+${trendingText}
+
+📊 **Analysis based on:** ${recentNews.length} recent fantasy articles
+⏰ **Updated:** ${new Date().toLocaleTimeString()}
+💡 **Tip:** Use \`.intel <player>\` for detailed player analysis`;
+
     } catch (error) {
       logger.error('Error in trending command:', error.message);
-      return '❌ Failed to get trending data. Please try again later.';
+      return `❌ Failed to generate trending analysis. Please try again later.
+
+🔥 **Quick Trending Categories:**
+• **Injury News:** Check recent injury reports  
+• **Breakout Watch:** Look for increased target share
+• **Trade Buzz:** Monitor player movement rumors
+• **Depth Chart:** New starter opportunities
+
+Use \`.news\` for latest headlines!`;
     }
   }
 
