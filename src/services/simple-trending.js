@@ -141,56 +141,75 @@ class SimpleTrendingAnalyzer {
     const lowerTitle = title.toLowerCase();
     const lowerName = playerName.toLowerCase();
 
-    // Remove player name from title for cleaner analysis
-    const titleWithoutName = lowerTitle.replace(lowerName, '').trim();
-
-    // Check for specific reasons
+    // Check for specific actionable reasons first
     if (lowerTitle.includes('waiver') || lowerTitle.includes('pickup') || lowerTitle.includes('add')) {
       return 'Waiver wire target';
     }
     
-    if (lowerTitle.includes('start') && lowerTitle.includes('sit')) {
+    if (lowerTitle.includes('start') && (lowerTitle.includes('sit') || lowerTitle.includes('bench'))) {
       return 'Start/sit decision';
     }
     
-    if (lowerTitle.includes('trade')) {
+    if (lowerTitle.includes('trade') && !lowerTitle.includes('traded')) {
       return 'Trade discussion';
     }
     
-    if (lowerTitle.includes('injury') || lowerTitle.includes('injured') || lowerTitle.includes('hurt')) {
+    if (lowerTitle.includes('injury') || lowerTitle.includes('injured') || lowerTitle.includes('hurt') || lowerTitle.includes('questionable')) {
       return 'Injury concern';
     }
     
-    if (lowerTitle.includes('breakout') || lowerTitle.includes('sleeper')) {
+    if (lowerTitle.includes('breakout') || lowerTitle.includes('sleeper') || lowerTitle.includes('deep')) {
       return 'Breakout potential';
     }
     
-    if (lowerTitle.includes('drop') || lowerTitle.includes('cut')) {
+    if (lowerTitle.includes('drop') || lowerTitle.includes('cut') || lowerTitle.includes('droppable')) {
       return 'Drop candidate';
     }
     
-    if (lowerTitle.includes('news') || lowerTitle.includes('update')) {
-      return 'News update';
+    if (lowerTitle.includes('buy low') || lowerTitle.includes('sell high')) {
+      return 'Buy/sell advice';
     }
     
-    if (lowerTitle.includes('discussion') || lowerTitle.includes('thoughts') || lowerTitle.includes('opinion')) {
-      return 'Community discussion';
-    }
-    
-    if (lowerTitle.includes('vs') || lowerTitle.includes('or') || lowerTitle.includes('better')) {
-      return 'Player comparison';
-    }
-    
-    if (lowerTitle.includes('outlook') || lowerTitle.includes('season') || lowerTitle.includes('rest of')) {
+    if (lowerTitle.includes('outlook') || lowerTitle.includes('ros') || lowerTitle.includes('rest of season')) {
       return 'Season outlook';
     }
 
-    // If no specific reason found, try to extract key phrase
-    if (titleWithoutName.length > 10 && titleWithoutName.length < 50) {
-      return titleWithoutName.charAt(0).toUpperCase() + titleWithoutName.slice(1);
+    // Try to extract the actual question or topic from the title
+    const patterns = [
+      /what.{0,20}think/i,
+      /should.{0,20}start/i,
+      /worth.{0,20}keeping/i,
+      /time.{0,20}sell/i,
+      /anyone.{0,20}worried/i,
+      /concerns.{0,20}about/i,
+      /thoughts.{0,20}on/i
+    ];
+
+    for (const pattern of patterns) {
+      if (pattern.test(title)) {
+        // Extract a meaningful snippet around the pattern
+        const match = title.match(pattern);
+        if (match) {
+          const start = Math.max(0, match.index - 10);
+          const end = Math.min(title.length, match.index + match[0].length + 20);
+          let snippet = title.substring(start, end).trim();
+          
+          // Clean up the snippet
+          snippet = snippet.replace(/^[^a-zA-Z]*/, '').replace(/[^a-zA-Z]*$/, '');
+          
+          if (snippet.length > 15 && snippet.length < 60) {
+            return snippet.charAt(0).toUpperCase() + snippet.slice(1);
+          }
+        }
+      }
     }
 
-    return 'General discussion';
+    // Fallback: just return the full title if it's reasonably short
+    if (title.length > 10 && title.length < 70) {
+      return title;
+    }
+
+    return 'Fantasy discussion';
   }
 
   formatForDiscord(analysis) {
@@ -204,12 +223,19 @@ class SimpleTrendingAnalyzer {
       const teamInfo = this.getPlayerTeam(player.name);
       
       response += `**${index + 1}. ${player.name}**${teamInfo}\n`;
-      response += `📈 **${player.primaryReason}**\n`;
-      response += `💬 ${player.mentions} posts, ${Math.round(player.engagement)} engagement\n`;
       
-      if (player.topPost && player.topPost.title.length < 80) {
-        response += `🔥 "${player.topPost.title}"\n`;
+      // Show the actual Reddit post title instead of generic categories
+      if (player.topPost && player.topPost.title) {
+        let title = player.topPost.title;
+        if (title.length > 85) {
+          title = title.substring(0, 82) + '...';
+        }
+        response += `🔥 "${title}"\n`;
+      } else {
+        response += `📈 **${player.primaryReason}**\n`;
       }
+      
+      response += `💬 ${player.mentions} posts, ${Math.round(player.engagement)} engagement\n`;
       
       response += `\n`;
     });
