@@ -37,33 +37,55 @@ class TrendingAnalyzer {
   }
 
   loadPlayerNames() {
-    // Comprehensive NFL player names - only REAL players, no common words
-    return [
-      // QBs
-      'Josh Allen', 'Lamar Jackson', 'Patrick Mahomes', 'Justin Herbert', 'Joe Burrow',
-      'Dak Prescott', 'Russell Wilson', 'Aaron Rodgers', 'Tua Tagovailoa',
-      'Justin Fields', 'Brock Purdy', 'Jalen Hurts', 'Kyler Murray', 'Daniel Jones',
-      'Mac Jones', 'Trevor Lawrence', 'Anthony Richardson', 'C.J. Stroud',
+    try {
+      // Load from comprehensive NFL player database
+      const fs = require('fs');
+      const path = require('path');
       
-      // RBs
-      'Christian McCaffrey', 'Austin Ekeler', 'Derrick Henry', 'Nick Chubb',
-      'Josh Jacobs', 'Saquon Barkley', 'Tony Pollard', 'Kenneth Walker III',
-      'Breece Hall', 'Joe Mixon', 'Alvin Kamara', 'Dalvin Cook', 'Aaron Jones',
-      'Jonathan Taylor', 'Austin Ekeler', 'Najee Harris', 'Miles Sanders',
-      'Brian Robinson Jr.', 'Jaylen Warren', 'Isiah Pacheco', 'Rhamondre Stevenson',
+      const databasePath = path.join(__dirname, '../../data/nfl-players-complete.json');
+      const playersData = JSON.parse(fs.readFileSync(databasePath, 'utf8'));
       
-      // WRs  
-      'Cooper Kupp', 'Davante Adams', 'Tyreek Hill', 'Stefon Diggs',
-      'DeAndre Hopkins', 'A.J. Brown', 'Ja\'Marr Chase', 'Justin Jefferson',
-      'Mike Evans', 'DK Metcalf', 'CeeDee Lamb', 'Keenan Allen', 'Amari Cooper',
-      'Tee Higgins', 'Jaylen Waddle', 'Chris Olave', 'Amon-Ra St. Brown',
-      'DeVonta Smith', 'DK Metcalf', 'Terry McLaurin', 'Michael Pittman Jr.',
+      // Extract player names from the comprehensive database
+      const playerNames = [];
       
-      // TEs
-      'Travis Kelce', 'Mark Andrews', 'George Kittle', 'T.J. Hockenson',
-      'Kyle Pitts', 'Darren Waller', 'Dallas Goedert', 'Evan Engram',
-      'David Njoku', 'Pat Freiermuth', 'Tyler Higbee'
-    ];
+      if (Array.isArray(playersData)) {
+        // If it's an array of player objects
+        for (const player of playersData) {
+          if (player.name) {
+            playerNames.push(player.name);
+          } else if (player.full_name) {
+            playerNames.push(player.full_name);
+          } else if (player.firstName && player.lastName) {
+            playerNames.push(`${player.firstName} ${player.lastName}`);
+          }
+        }
+      } else if (typeof playersData === 'object') {
+        // If it's an object with player data
+        for (const key in playersData) {
+          const player = playersData[key];
+          if (typeof player === 'object' && (player.name || player.full_name)) {
+            playerNames.push(player.name || player.full_name);
+          }
+        }
+      }
+      
+      logger.info(`📊 Loaded ${playerNames.length} player names from comprehensive database`);
+      return playerNames.filter(name => name && name.length > 2); // Filter out empty/short names
+      
+    } catch (error) {
+      logger.warn('Failed to load comprehensive player database, using fallback list:', error.message);
+      
+      // Fallback to a smaller but reliable list
+      return [
+        'Josh Allen', 'Lamar Jackson', 'Patrick Mahomes', 'Justin Herbert', 'Joe Burrow',
+        'Christian McCaffrey', 'Austin Ekeler', 'Derrick Henry', 'Nick Chubb',
+        'Cooper Kupp', 'Davante Adams', 'Tyreek Hill', 'Stefon Diggs',
+        'Travis Kelce', 'Mark Andrews', 'George Kittle', 'T.J. Hockenson',
+        'Justin Jefferson', 'Ja\'Marr Chase', 'A.J. Brown', 'CeeDee Lamb',
+        'Saquon Barkley', 'Jonathan Taylor', 'Tony Pollard', 'Kenneth Walker III',
+        'Brian Robinson Jr.', 'Jaylen Warren', 'Joe Mixon', 'Alvin Kamara'
+      ];
+    }
   }
 
   async generateTrendingAnalysis() {
