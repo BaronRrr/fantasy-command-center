@@ -2354,16 +2354,16 @@ Make it ESPN-quality analysis with specific fantasy advice. No generic content.`
       // Use the new advanced trending analyzer
       if (!this.trendingAnalyzer) {
         try {
-          logger.info('📦 Loading TrendingAnalyzer module...');
+          logger.info('📦 Loading SimpleTrendingAnalyzer module...');
           const path = require('path');
-          const analyzerPath = path.join(__dirname, 'services', 'trending-analyzer');
+          const analyzerPath = path.join(__dirname, 'services', 'simple-trending');
           logger.info(`📂 Analyzer path: ${analyzerPath}`);
           
-          const TrendingAnalyzer = require(analyzerPath);
-          logger.info('✅ TrendingAnalyzer module loaded successfully');
+          const SimpleTrendingAnalyzer = require(analyzerPath);
+          logger.info('✅ SimpleTrendingAnalyzer module loaded successfully');
           
-          this.trendingAnalyzer = new TrendingAnalyzer(this.playerDatabase);
-          logger.info('✅ TrendingAnalyzer instance created successfully');
+          this.trendingAnalyzer = new SimpleTrendingAnalyzer();
+          logger.info('✅ SimpleTrendingAnalyzer instance created successfully');
         } catch (loadError) {
           logger.error('❌ Failed to load TrendingAnalyzer:', loadError.message);
           logger.error('Load error stack:', loadError.stack);
@@ -2371,8 +2371,8 @@ Make it ESPN-quality analysis with specific fantasy advice. No generic content.`
         }
       }
       
-      logger.info('🔍 Calling generateTrendingAnalysis...');
-      const analysis = await this.trendingAnalyzer.generateTrendingAnalysis();
+      logger.info('🔍 Calling getTrendingPlayers...');
+      const analysis = await this.trendingAnalyzer.getTrendingPlayers();
       logger.info('📊 Analysis generated, formatting for Discord...');
       return this.trendingAnalyzer.formatForDiscord(analysis);
 
