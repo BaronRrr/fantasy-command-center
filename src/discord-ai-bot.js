@@ -1798,8 +1798,14 @@ Focus on value and team needs. Keep it concise for live draft.`;
     console.log(`📰 ${username} requested latest news articles`);
     
     try {
+      // Get user's drafted players for personalization
+      const userPlayers = this.getUserDraftedPlayers(username);
+      
       // Fetch real fantasy football news articles
-      const articles = await this.newsArticleFetcher.fetchLatestArticles(6);
+      const articles = await this.newsArticleFetcher.fetchLatestArticles(8);
+      
+      // Prioritize articles about user's players
+      const prioritizedArticles = this.prioritizeUserRelevantArticles(articles, userPlayers);
       
       // Create news embed with actual article links
       const newsEmbed = {
@@ -1813,10 +1819,37 @@ Focus on value and team needs. Keep it concise for live draft.`;
         }
       };
 
-      if (articles.length > 0) {
-        // Group articles by priority
-        const highPriority = articles.filter(a => a.priority === 'HIGH').slice(0, 4);
-        const mediumPriority = articles.filter(a => a.priority === 'MEDIUM').slice(0, 4);
+      if (prioritizedArticles.length > 0) {
+        // Group articles by relevance and priority
+        const userRelevant = prioritizedArticles.filter(a => a.userRelevant).slice(0, 3);
+        const highPriority = prioritizedArticles.filter(a => !a.userRelevant && a.priority === 'HIGH').slice(0, 3);
+        const mediumPriority = prioritizedArticles.filter(a => !a.userRelevant && a.priority === 'MEDIUM').slice(0, 2);
+
+        // Add user-relevant articles first (if any)
+        if (userRelevant.length > 0) {
+          const userRelevantText = userRelevant.map(article => {
+            const timeAgo = this.getTimeAgo(article.publishedAt);
+            const shortTitle = article.title.length > 60 ? article.title.substring(0, 60) + '...' : article.title;
+            const playerMatch = article.matchedPlayer ? ` [${article.matchedPlayer}]` : '';
+            
+            let articleText = `👤 **[${shortTitle}](${article.url})**${playerMatch}\n*${article.source} • ${timeAgo}*`;
+            
+            // Add summary if available
+            if (article.summary) {
+              articleText += `\n📝 ${article.summary.substring(0, 150)}...`;
+            } else if (article.description && article.description.length > 20) {
+              articleText += `\n📝 ${article.description.substring(0, 150)}...`;
+            }
+            
+            return articleText;
+          }).join('\n\n');
+
+          newsEmbed.fields.push({
+            name: '👤 Your Team News',
+            value: userRelevantText.substring(0, 900),
+            inline: false
+          });
+        }
 
         if (highPriority.length > 0) {
           const highPriorityText = highPriority.map(article => {
@@ -1911,6 +1944,84 @@ Focus on value and team needs. Keep it concise for live draft.`;
       const diffDays = Math.floor(diffHours / 24);
       return `${diffDays}d ago`;
     }
+  }
+
+  getUserDraftedPlayers(username) {
+    // Get user's drafted players from draft state
+    if (!this.draftState || !this.draftState.picks) {
+      return [];
+    }
+    
+    const userPicks = this.draftState.picks.filter(pick => 
+      pick.isUser || 
+      pick.team === 'Baron\'s Best Team' ||
+      (pick.username && pick.username.toLowerCase() === username.toLowerCase())
+    );
+    
+    return userPicks.map(pick => ({
+      name: pick.player || pick.name,
+      position: pick.position,
+      team: pick.team_abbr || pick.team
+    }));
+  }
+
+  prioritizeUserRelevantArticles(articles, userPlayers) {
+    if (userPlayers.length === 0) {
+      return articles;
+    }
+    
+    // Create search terms from user's players
+    const playerNames = userPlayers.map(p => p.name.toLowerCase());
+    const playerTeams = userPlayers.map(p => p.team?.toLowerCase()).filter(t => t);
+    
+    const prioritizedArticles = articles.map(article => {
+      let relevanceScore = 0;
+      let matchedPlayer = null;
+      
+      const titleLower = article.title.toLowerCase();
+      const descLower = (article.description || '').toLowerCase();
+      const contentLower = (article.summary || article.content || '').toLowerCase();
+      
+      // Check for player name matches
+      for (const playerName of playerNames) {
+        if (playerName.length < 3) continue; // Skip short names
+        
+        const nameParts = playerName.split(' ');
+        const lastName = nameParts[nameParts.length - 1];
+        
+        if (titleLower.includes(playerName) || 
+            titleLower.includes(lastName) ||
+            descLower.includes(playerName) ||
+            contentLower.includes(playerName)) {
+          relevanceScore += 10;
+          matchedPlayer = playerName;
+          break;
+        }
+      }
+      
+      // Check for team matches (lower priority)
+      for (const team of playerTeams) {
+        if (titleLower.includes(team) || descLower.includes(team)) {
+          relevanceScore += 3;
+          break;
+        }
+      }
+      
+      return {
+        ...article,
+        userRelevant: relevanceScore > 0,
+        relevanceScore,
+        matchedPlayer
+      };
+    });
+    
+    // Sort by relevance score (highest first), then by original order
+    return prioritizedArticles.sort((a, b) => {
+      if (a.relevanceScore !== b.relevanceScore) {
+        return b.relevanceScore - a.relevanceScore;
+      }
+      return 0; // Maintain original order for same relevance
+    });
   }
 
   async generateNewsAnalysis(intelligence) {
