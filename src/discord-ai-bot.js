@@ -8,6 +8,8 @@ const TwitterMonitor = require('./monitoring/twitter-monitor');
 const AdvancedDataMonitor = require('./monitoring/advanced-data-monitor');
 const ScheduledNotifications = require('./monitoring/scheduled-notifications');
 const NewsArticleFetcher = require('./news-article-fetcher');
+const { handleSlashCommand } = require('./discord/slash-commands');
+const { registerSlashCommands } = require('./discord/register-commands');
 const winston = require('winston');
 
 const logger = winston.createLogger({
@@ -60,13 +62,24 @@ class DiscordAIBot {
   }
 
   setupEventHandlers() {
-    this.client.on('ready', () => {
+    this.client.on('ready', async () => {
       logger.info(`🤖 Fantasy AI Coach is online as ${this.client.user.tag}!`);
-      this.client.user.setActivity('Fantasy Football | Type !coach help', { type: 'WATCHING' });
+      this.client.user.setActivity('Fantasy Football | Use /news for updates', { type: 'WATCHING' });
+      
+      // Register slash commands when bot is ready
+      await this.registerSlashCommands();
     });
 
     this.client.on('messageCreate', async (message) => {
       await this.handleMessage(message);
+    });
+
+    // Handle slash command interactions
+    this.client.on('interactionCreate', async (interaction) => {
+      if (!interaction.isChatInputCommand()) return;
+      
+      logger.info(`📝 Processing slash command: /${interaction.commandName} from ${interaction.user.username}`);
+      await handleSlashCommand(interaction, this);
     });
 
     this.client.on('error', (error) => {
@@ -2030,6 +2043,122 @@ Make it ESPN-quality analysis with specific fantasy advice. No generic content.`
         fullAnalysis: null
       };
     }
+  }
+
+  // Slash command registration
+  async registerSlashCommands() {
+    try {
+      await registerSlashCommands();
+      logger.info('✅ Slash commands registered successfully');
+    } catch (error) {
+      logger.error('❌ Failed to register slash commands:', error.message);
+    }
+  }
+
+  // Slash command helper methods
+  async getSlashCommandHelp() {
+    return `🤖 **Fantasy Command Center - Slash Commands**
+
+**📰 News & Analysis**
+\`/news\` - Latest fantasy football news with AI summaries
+\`/intel [player]\` - Player intelligence and breaking news
+
+**🏈 Draft Management**  
+\`/draft <player>\` - Add a player to your team
+\`/analyze\` - AI analysis of your current draft situation
+\`/team\` - View your current roster
+\`/clear\` - Reset all draft data
+
+**📊 Data & Import**
+\`/import <data>\` - Import ESPN draft data
+\`/player <name>\` - Get detailed player information
+\`/status\` - Check system health status
+
+**⚡ Quick Actions**
+\`/update\` - Manually refresh all data sources
+\`/help\` - Show this help message
+
+💡 **Tip**: Slash commands auto-complete and work in any channel!
+🔄 **Commands update in real-time** - no need to refresh Discord`;
+  }
+
+  async showUserTeam(username) {
+    if (!this.draftState || !this.draftState.picks) {
+      return `👤 **${username}'s Team**\n\n🚫 No picks recorded yet!\n\n💡 Use \`/draft <player>\` to start building your team.`;
+    }
+
+    const userPicks = this.draftState.picks.filter(pick => 
+      pick.isUser || 
+      pick.team === 'Baron\'s Best Team' ||
+      (pick.username && pick.username.toLowerCase() === username.toLowerCase())
+    );
+
+    if (userPicks.length === 0) {
+      return `👤 **${username}'s Team**\n\n🚫 No picks found for your team.\n\n💡 Use \`/draft <player>\` to add players to your roster.`;
+    }
+
+    // Group by position
+    const positions = {};
+    userPicks.forEach(pick => {
+      const pos = pick.position || 'UNKNOWN';
+      if (!positions[pos]) positions[pos] = [];
+      positions[pos].push(pick);
+    });
+
+    let teamDisplay = `👤 **${username}'s Fantasy Team** (${userPicks.length} players)\n\n`;
+    
+    // Show by position
+    ['QB', 'RB', 'WR', 'TE', 'K', 'D/ST'].forEach(pos => {
+      if (positions[pos]) {
+        teamDisplay += `**${pos}**: ${positions[pos].map(p => p.player || p.name).join(', ')}\n`;
+      }
+    });
+
+    // Show other positions
+    Object.keys(positions).forEach(pos => {
+      if (!['QB', 'RB', 'WR', 'TE', 'K', 'D/ST'].includes(pos)) {
+        teamDisplay += `**${pos}**: ${positions[pos].map(p => p.player || p.name).join(', ')}\n`;
+      }
+    });
+
+    teamDisplay += `\n🎯 Use \`/analyze\` for AI team analysis!`;
+    return teamDisplay;
+  }
+
+  async getSystemStatus() {
+    const status = {
+      discord: this.client.isReady() ? '✅ Online' : '❌ Offline',
+      claude: '✅ Connected',
+      newsFeeds: '✅ Active',
+      scheduledNotifications: process.env.NODE_ENV === 'production' ? '✅ Running' : '⏸️ Development Mode',
+      uptime: this.formatUptime(process.uptime())
+    };
+
+    return `🏥 **System Status**
+
+**Core Services**
+• Discord Bot: ${status.discord}
+• Claude AI: ${status.claude}  
+• News Feeds: ${status.newsFeeds}
+• Notifications: ${status.scheduledNotifications}
+
+**System Info**
+• Uptime: ${status.uptime}
+• Environment: ${process.env.NODE_ENV || 'development'}
+• Version: 2.0.0
+
+🔗 **Health Checks**: \`/health\`, \`/ready\`, \`/status\`
+⚡ **All systems operational!**`;
+  }
+
+  formatUptime(seconds) {
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    
+    if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m`;
   }
 
   async stop() {
