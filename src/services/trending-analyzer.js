@@ -70,6 +70,10 @@ class TrendingAnalyzer {
       }
       
       logger.info(`📊 Loaded ${playerNames.length} player names from comprehensive database`);
+      
+      // Store full player data for later reference
+      this.playerData = playersData;
+      
       return playerNames.filter(name => name && name.length > 2); // Filter out empty/short names
       
     } catch (error) {
@@ -314,39 +318,84 @@ class TrendingAnalyzer {
     const lowerText = text.toLowerCase();
     
     // Filter out common words that might accidentally match
-    const excludeWords = ['will', 'not', 'play', 'tonight', 'amidst', 'uncertain', 'future', 'with', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'as', 'by'];
+    const excludeWords = ['will', 'not', 'play', 'tonight', 'amidst', 'uncertain', 'future', 'with', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'as', 'by', 'jones', 'smith', 'brown', 'johnson', 'williams', 'davis', 'miller'];
     
     for (const playerName of this.playerNames) {
       const lowerPlayer = playerName.toLowerCase();
       
-      // Skip if player name is just a common word
+      // Skip if player name is just a common word or very common surname
       if (excludeWords.includes(lowerPlayer)) {
         continue;
       }
       
-      // Check for full name match with word boundaries
+      // Check for full name match with word boundaries (most accurate)
       const fullNameRegex = new RegExp(`\\b${lowerPlayer.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
       if (fullNameRegex.test(text)) {
         players.push(playerName);
         continue;
       }
       
-      // Check for last name match (only for distinctive last names)
+      // Only match last names for fantasy-relevant players (not practice squad)
       const nameParts = playerName.split(' ');
       if (nameParts.length > 1) {
         const lastName = nameParts[nameParts.length - 1];
         
-        // Only match distinctive last names (4+ chars, not common words)
-        if (lastName.length >= 4 && !excludeWords.includes(lastName.toLowerCase())) {
-          const lastNameRegex = new RegExp(`\\b${lastName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
-          if (lastNameRegex.test(text)) {
-            players.push(playerName);
+        // Only match distinctive last names that aren't super common
+        if (lastName.length >= 5 && !excludeWords.includes(lastName.toLowerCase())) {
+          // Additional check: only if it's likely a starter/relevant player
+          const playerInfo = this.getPlayerInfo(playerName);
+          if (playerInfo && this.isFantasyRelevant(playerInfo)) {
+            const lastNameRegex = new RegExp(`\\b${lastName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+            if (lastNameRegex.test(text)) {
+              players.push(playerName);
+            }
           }
         }
       }
     }
 
     return [...new Set(players)]; // Remove duplicates
+  }
+
+  getPlayerInfo(playerName) {
+    if (!this.playerData) return null;
+    
+    if (Array.isArray(this.playerData)) {
+      return this.playerData.find(p => 
+        p.name === playerName || 
+        p.full_name === playerName ||
+        `${p.firstName} ${p.lastName}` === playerName
+      );
+    } else if (typeof this.playerData === 'object') {
+      for (const key in this.playerData) {
+        const player = this.playerData[key];
+        if ((player.name || player.full_name) === playerName) {
+          return player;
+        }
+      }
+    }
+    return null;
+  }
+
+  isFantasyRelevant(player) {
+    // Check if player is likely fantasy relevant
+    if (!player) return false;
+    
+    // Check position - prioritize skill positions
+    const position = player.position || player.pos || '';
+    const relevantPositions = ['QB', 'RB', 'WR', 'TE', 'K', 'DST'];
+    
+    if (!relevantPositions.includes(position)) return false;
+    
+    // Check if they're on an active roster (not practice squad)
+    const status = player.status || player.roster_status || '';
+    if (status.includes('Practice Squad') || status.includes('PS')) return false;
+    
+    // If we have depth chart info, prioritize starters
+    const depth = player.depth_chart_order || player.depth || 0;
+    if (depth > 3) return false; // Only top 3 on depth chart
+    
+    return true;
   }
 
   categorizeTrend(text) {
@@ -503,10 +552,24 @@ class TrendingAnalyzer {
     if (analysis.trending && analysis.trending.length > 0) {
       response += `**📈 Top Trending Players:**\n`;
       analysis.trending.slice(0, 5).forEach((player, index) => {
-        response += `${index + 1}. **${player.name}** (Impact: ${player.fantasyImpact}/10)\n`;
-        response += `   └ ${player.recommendation} - ${player.mentions} mentions across ${player.sources.size} sources\n`;
+        // Get player info for context
+        const playerInfo = this.getPlayerInfo ? this.getPlayerInfo(player.name) : null;
+        const position = playerInfo?.position || playerInfo?.pos || 'N/A';
+        const team = playerInfo?.team || playerInfo?.current_team || 'N/A';
+        const playerDetails = position !== 'N/A' || team !== 'N/A' ? ` (${position}, ${team})` : '';
+        
+        // Get trending reason
+        const trendTypes = Array.from(player.trendTypes || []).join(', ');
+        const reasons = player.reasons && player.reasons.length > 0 ? 
+          `\n      💬 "${player.reasons[0].substring(0, 80)}..."` : '';
+        const whyTrending = trendTypes ? `\n      📈 Trending: ${trendTypes}` : '';
+        
+        response += `${index + 1}. **${player.name}**${playerDetails} (Impact: ${player.fantasyImpact}/10)\n`;
+        response += `   └ ${player.recommendation} - ${player.mentions} mentions across ${player.sources.size} sources${whyTrending}${reasons}\n`;
       });
       response += `\n`;
+    } else {
+      response += `**📈 Top Trending Players:**\nNo significant trending activity detected from current sources.\n\n`;
     }
 
     response += `**🎯 Categories:**\n`;
@@ -514,7 +577,13 @@ class TrendingAnalyzer {
       response += `• **${category}:** ${players}\n`;
     });
 
-    response += `\n📊 **Source:** ${analysis.source}`;
+    response += `\n**📊 Data Sources:**`;
+    if (analysis.dataSourcesUsed) {
+      response += `\n${analysis.dataSourcesUsed.map(source => `   ✅ ${source}`).join('\n')}`;
+    } else {
+      response += ` ${analysis.source}`;
+    }
+    
     response += `\n⏰ **Generated:** ${new Date(analysis.generated).toLocaleTimeString()}`;
     if (analysis.nextUpdate) {
       response += `\n🔄 ${analysis.nextUpdate}`;
