@@ -1807,123 +1807,73 @@ Focus on value and team needs. Keep it concise for live draft.`;
       // Prioritize articles about user's players
       const prioritizedArticles = this.prioritizeUserRelevantArticles(articles, userPlayers);
       
-      // Create news embed with actual article links
-      const newsEmbed = {
-        title: '📰 Latest Fantasy Football News Articles',
-        description: `Fresh fantasy football news from top sources`,
-        color: 0xFF6B35,
-        fields: [],
-        timestamp: new Date().toISOString(),
-        footer: {
-          text: 'Fantasy Command Center • Live News Feed'
-        }
-      };
-
-      if (prioritizedArticles.length > 0) {
-        // Group articles by relevance and priority
-        const userRelevant = prioritizedArticles.filter(a => a.userRelevant).slice(0, 3);
-        const highPriority = prioritizedArticles.filter(a => !a.userRelevant && a.priority === 'HIGH').slice(0, 3);
-        const mediumPriority = prioritizedArticles.filter(a => !a.userRelevant && a.priority === 'MEDIUM').slice(0, 2);
-
-        // Add user-relevant articles first (if any)
-        if (userRelevant.length > 0) {
-          const userRelevantText = userRelevant.map(article => {
-            const timeAgo = this.getTimeAgo(article.publishedAt);
-            const shortTitle = article.title.length > 60 ? article.title.substring(0, 60) + '...' : article.title;
-            const playerMatch = article.matchedPlayer ? ` [${article.matchedPlayer}]` : '';
-            
-            let articleText = `👤 **[${shortTitle}](${article.url})**${playerMatch}\n*${article.source} • ${timeAgo}*`;
-            
-            // Add summary if available
-            if (article.summary) {
-              articleText += `\n📝 ${article.summary.substring(0, 150)}...`;
-            } else if (article.description && article.description.length > 20) {
-              articleText += `\n📝 ${article.description.substring(0, 150)}...`;
-            }
-            
-            return articleText;
-          }).join('\n\n');
-
-          newsEmbed.fields.push({
-            name: '👤 Your Team News',
-            value: userRelevantText.substring(0, 900),
-            inline: false
-          });
-        }
-
-        if (highPriority.length > 0) {
-          const highPriorityText = highPriority.map(article => {
-            const timeAgo = this.getTimeAgo(article.publishedAt);
-            const shortTitle = article.title.length > 60 ? article.title.substring(0, 60) + '...' : article.title;
-            
-            let articleText = `🔥 **[${shortTitle}](${article.url})**\n*${article.source} • ${timeAgo}*`;
-            
-            // Add summary if available
-            if (article.summary) {
-              articleText += `\n📝 ${article.summary.substring(0, 150)}...`;
-            } else if (article.description && article.description.length > 20) {
-              articleText += `\n📝 ${article.description.substring(0, 150)}...`;
-            }
-            
-            return articleText;
-          }).join('\n\n');
-
-          newsEmbed.fields.push({
-            name: '🔥 Breaking News & Analysis',
-            value: highPriorityText.substring(0, 900),
-            inline: false
-          });
-        }
-
-        if (mediumPriority.length > 0) {
-          const mediumPriorityText = mediumPriority.map(article => {
-            const timeAgo = this.getTimeAgo(article.publishedAt);
-            const shortTitle = article.title.length > 60 ? article.title.substring(0, 60) + '...' : article.title;
-            
-            let articleText = `📄 **[${shortTitle}](${article.url})**\n*${article.source} • ${timeAgo}*`;
-            
-            // Add summary if available
-            if (article.summary) {
-              articleText += `\n📝 ${article.summary.substring(0, 150)}...`;
-            } else if (article.description && article.description.length > 20) {
-              articleText += `\n📝 ${article.description.substring(0, 150)}...`;
-            }
-            
-            return articleText;
-          }).join('\n\n');
-
-          newsEmbed.fields.push({
-            name: '📄 More Fantasy News',
-            value: mediumPriorityText.substring(0, 900),
-            inline: false
-          });
-        }
-
-        // Add sources summary
-        const sources = [...new Set(articles.map(a => a.source))];
-        newsEmbed.fields.push({
-          name: '📡 Sources',
-          value: sources.join(' • '),
-          inline: false
-        });
-
-      } else {
-        newsEmbed.fields.push({
-          name: '⏳ Loading...',
-          value: 'Fantasy news sources are being updated. Try again in a few minutes.',
-          inline: false
-        });
+      if (prioritizedArticles.length === 0) {
+        return '📰 No recent fantasy football news found. Check back later!';
       }
 
-      // Send to dedicated news channel
+      // Use Claude AI to create a concise news summary that fits Discord limits
+      const newsSummaryPrompt = `Create a concise fantasy football news summary for Discord (max 1500 characters total).
+
+ARTICLES TO SUMMARIZE:
+${prioritizedArticles.slice(0, 6).map((article, i) => {
+        const relevance = article.userRelevant ? `[YOUR TEAM] ` : '';
+        return `${i + 1}. ${relevance}${article.title}
+   Source: ${article.source}
+   URL: ${article.url}
+   ${article.summary || article.description || 'No summary available'}`;
+      }).join('\n\n')}
+
+USER'S DRAFTED PLAYERS: ${userPlayers.length > 0 ? userPlayers.join(', ') : 'None yet'}
+
+Create a Discord-formatted summary with:
+- **TOP HEADLINES** (bullet points, max 400 chars)
+- **YOUR TEAM ALERTS** (if any relevant to user's players, max 300 chars)  
+- **KEY LINKS** (3-4 most important article links with short titles, max 400 chars)
+
+Total response must be under 1500 characters. Use Discord markdown formatting.`;
+
+      const aiSummary = await this.claude.makeRequest([{
+        role: 'user',
+        content: newsSummaryPrompt
+      }], 'You are a fantasy football news summarizer. Create concise, actionable Discord messages.');
+
+      // Handle Claude response format
+      let summaryText = 'News summary temporarily unavailable.';
+      if (typeof aiSummary === 'string') {
+        summaryText = aiSummary;
+      } else if (aiSummary.content?.[0]?.text || aiSummary.text || aiSummary.message) {
+        summaryText = aiSummary.content?.[0]?.text || aiSummary.text || aiSummary.message;
+      }
+
+      // Ensure the response fits Discord limits (backup truncation)
+      if (summaryText.length > 1800) {
+        summaryText = summaryText.substring(0, 1800) + '...\n\n⚡ *Full articles in #newsarticles*';
+      }
+
+      // Add footer with source count and timestamp
+      const sources = [...new Set(articles.map(a => a.source))];
+      const footer = `\n\n📡 **Sources:** ${sources.slice(0, 4).join(', ')}${sources.length > 4 ? '...' : ''}\n⏰ Updated: ${new Date().toLocaleTimeString()}`;
+      
+      const finalMessage = `📰 **FANTASY NEWS DIGEST**\n\n${summaryText}${footer}`;
+
+      // Send to dedicated news channel if available
       if (this.discordNotifier && this.discordNotifier.sendNewsAlert) {
+        const newsEmbed = {
+          title: '📰 Fantasy Football News Digest',
+          description: summaryText,
+          color: 0xFF6B35,
+          timestamp: new Date().toISOString(),
+          footer: {
+            text: `${sources.length} sources • Fantasy Command Center`
+          }
+        };
+        
         await this.discordNotifier.sendNewsAlert(newsEmbed);
-        return `📰 **${articles.length} news articles sent to #newsarticles!**\n\n🔗 Live links to ESPN, FantasyPros, NFL.com, CBS Sports, and more\n⏰ Updated: ${new Date().toLocaleTimeString()}`;
+        return `📰 **News digest sent to #newsarticles!**\n\n🔗 ${articles.length} articles from ${sources.length} sources\n⏰ Updated: ${new Date().toLocaleTimeString()}`;
       } else {
-        // Fallback - show articles in current channel
-        return this.newsArticleFetcher.formatArticlesForDiscord(articles);
+        // Fallback - show summary in current channel
+        return finalMessage;
       }
-
     } catch (error) {
       console.error('Failed to fetch news articles:', error.message);
       return '❌ Failed to fetch news articles. Please try again later.';
