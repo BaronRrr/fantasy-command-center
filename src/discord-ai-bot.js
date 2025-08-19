@@ -2045,11 +2045,27 @@ Make it ESPN-quality analysis with specific fantasy advice. No generic content.`
     }
   }
 
-  // Slash command registration
+  // Slash command registration  
   async registerSlashCommands() {
     try {
-      await registerSlashCommands();
-      logger.info('✅ Slash commands registered successfully');
+      const { REST, Routes } = require('discord.js');
+      const { commands } = require('./discord/slash-commands');
+      
+      const rest = new REST({ version: '10' }).setToken(this.botToken);
+      const clientId = this.client.application.id;
+      
+      logger.info(`📝 Registering ${commands.length} slash commands globally...`);
+      
+      const data = await rest.put(
+        Routes.applicationCommands(clientId),
+        { body: commands }
+      );
+      
+      logger.info(`✅ Successfully registered ${data.length} slash commands!`);
+      data.forEach(cmd => {
+        logger.info(`   /${cmd.name} - ${cmd.description}`);
+      });
+      
     } catch (error) {
       logger.error('❌ Failed to register slash commands:', error.message);
     }

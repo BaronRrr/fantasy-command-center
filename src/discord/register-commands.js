@@ -8,8 +8,9 @@ async function registerSlashCommands() {
   const rest = new REST({ version: '10' }).setToken(config.discord.botToken);
 
   try {
-    // Get client ID from the bot token (it's the first part before the first dot)
-    const clientId = Buffer.from(config.discord.botToken.split('.')[0], 'base64').toString();
+    // Get application ID from environment variable or extract from token
+    const clientId = process.env.DISCORD_APPLICATION_ID || 
+                     Buffer.from(config.discord.botToken.split('.')[0], 'base64').toString();
 
     console.log(`📝 Registering ${commands.length} slash commands globally...`);
 
