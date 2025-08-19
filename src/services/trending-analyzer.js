@@ -37,26 +37,32 @@ class TrendingAnalyzer {
   }
 
   loadPlayerNames() {
-    // Common NFL player names to look for - expand this list
+    // Comprehensive NFL player names - only REAL players, no common words
     return [
       // QBs
-      'Josh Allen', 'Lamar Jackson', 'Mahomes', 'Herbert', 'Burrow', 'Allen', 'Jackson',
+      'Josh Allen', 'Lamar Jackson', 'Patrick Mahomes', 'Justin Herbert', 'Joe Burrow',
       'Dak Prescott', 'Russell Wilson', 'Aaron Rodgers', 'Tua Tagovailoa',
-      'Justin Fields', 'Brock Purdy', 'Jalen Hurts', 'Kyler Murray',
+      'Justin Fields', 'Brock Purdy', 'Jalen Hurts', 'Kyler Murray', 'Daniel Jones',
+      'Mac Jones', 'Trevor Lawrence', 'Anthony Richardson', 'C.J. Stroud',
       
       // RBs
       'Christian McCaffrey', 'Austin Ekeler', 'Derrick Henry', 'Nick Chubb',
-      'Josh Jacobs', 'Saquon Barkley', 'Tony Pollard', 'Kenneth Walker',
-      'Breece Hall', 'Joe Mixon', 'Alvin Kamara', 'Dalvin Cook',
+      'Josh Jacobs', 'Saquon Barkley', 'Tony Pollard', 'Kenneth Walker III',
+      'Breece Hall', 'Joe Mixon', 'Alvin Kamara', 'Dalvin Cook', 'Aaron Jones',
+      'Jonathan Taylor', 'Austin Ekeler', 'Najee Harris', 'Miles Sanders',
+      'Brian Robinson Jr.', 'Jaylen Warren', 'Isiah Pacheco', 'Rhamondre Stevenson',
       
-      // WRs
+      // WRs  
       'Cooper Kupp', 'Davante Adams', 'Tyreek Hill', 'Stefon Diggs',
-      'DeAndre Hopkins', 'A.J. Brown', 'Ja\'Maar Chase', 'Justin Jefferson',
-      'Mike Evans', 'DK Metcalf', 'CeeDee Lamb', 'Keenan Allen',
+      'DeAndre Hopkins', 'A.J. Brown', 'Ja\'Marr Chase', 'Justin Jefferson',
+      'Mike Evans', 'DK Metcalf', 'CeeDee Lamb', 'Keenan Allen', 'Amari Cooper',
+      'Tee Higgins', 'Jaylen Waddle', 'Chris Olave', 'Amon-Ra St. Brown',
+      'DeVonta Smith', 'DK Metcalf', 'Terry McLaurin', 'Michael Pittman Jr.',
       
       // TEs
       'Travis Kelce', 'Mark Andrews', 'George Kittle', 'T.J. Hockenson',
-      'Kyle Pitts', 'Darren Waller', 'Dallas Goedert'
+      'Kyle Pitts', 'Darren Waller', 'Dallas Goedert', 'Evan Engram',
+      'David Njoku', 'Pat Freiermuth', 'Tyler Higbee'
     ];
   }
 
@@ -285,19 +291,36 @@ class TrendingAnalyzer {
     const players = [];
     const lowerText = text.toLowerCase();
     
+    // Filter out common words that might accidentally match
+    const excludeWords = ['will', 'not', 'play', 'tonight', 'amidst', 'uncertain', 'future', 'with', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'as', 'by'];
+    
     for (const playerName of this.playerNames) {
       const lowerPlayer = playerName.toLowerCase();
       
-      // Check for full name match
-      if (lowerText.includes(lowerPlayer)) {
+      // Skip if player name is just a common word
+      if (excludeWords.includes(lowerPlayer)) {
+        continue;
+      }
+      
+      // Check for full name match with word boundaries
+      const fullNameRegex = new RegExp(`\\b${lowerPlayer.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+      if (fullNameRegex.test(text)) {
         players.push(playerName);
         continue;
       }
       
-      // Check for last name match (for common names)
-      const lastName = playerName.split(' ').pop();
-      if (lastName.length > 4 && lowerText.includes(lastName.toLowerCase())) {
-        players.push(playerName);
+      // Check for last name match (only for distinctive last names)
+      const nameParts = playerName.split(' ');
+      if (nameParts.length > 1) {
+        const lastName = nameParts[nameParts.length - 1];
+        
+        // Only match distinctive last names (4+ chars, not common words)
+        if (lastName.length >= 4 && !excludeWords.includes(lastName.toLowerCase())) {
+          const lastNameRegex = new RegExp(`\\b${lastName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+          if (lastNameRegex.test(text)) {
+            players.push(playerName);
+          }
+        }
       }
     }
 

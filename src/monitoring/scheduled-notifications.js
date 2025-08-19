@@ -22,6 +22,10 @@ class ScheduledNotifications {
     this.twitterMonitor = new TwitterMonitor();
     this.discordNotifier = new DiscordNotifier();
     this.isActive = false;
+    
+    // Track sent alerts to prevent duplicates
+    this.sentAlerts = new Map();
+    this.sentAlertExpiry = 24 * 60 * 60 * 1000; // 24 hours
   }
 
   // Start all scheduled notifications
@@ -212,25 +216,47 @@ class ScheduledNotifications {
         });
 
         if (recentAlerts.length > 0) {
-          const embed = {
-            title: '🚨 Fantasy Alert',
-            description: 'Critical fantasy football update detected',
-            color: 0xFF0000,
-            fields: [{
-              name: 'Breaking Update',
-              value: recentAlerts.slice(0, 2).map(alert => 
-                `• ${alert.player || alert.team}: ${alert.fantasy_impact || alert.change}`
-              ).join('\n'),
-              inline: false
-            }],
-            timestamp: new Date().toISOString(),
-            footer: {
-              text: 'Fantasy Command Center • Critical Alert'
+          // Check for duplicates to prevent spam
+          const alertKey = recentAlerts.slice(0, 2).map(alert => 
+            `${alert.player || alert.team}:${alert.fantasy_impact || alert.change}`
+          ).join('|');
+          
+          // Clean expired alerts
+          const now = Date.now();
+          for (const [key, timestamp] of this.sentAlerts.entries()) {
+            if (now - timestamp > this.sentAlertExpiry) {
+              this.sentAlerts.delete(key);
             }
-          };
+          }
+          
+          // Check if we've already sent this exact alert recently (within 6 hours)
+          const lastSent = this.sentAlerts.get(alertKey);
+          const sixHoursAgo = now - (6 * 60 * 60 * 1000);
+          
+          if (!lastSent || lastSent < sixHoursAgo) {
+            const embed = {
+              title: '🚨 Fantasy Alert',
+              description: 'Critical fantasy football update detected',
+              color: 0xFF0000,
+              fields: [{
+                name: 'Breaking Update',
+                value: recentAlerts.slice(0, 2).map(alert => 
+                  `• ${alert.player || alert.team}: ${alert.fantasy_impact || alert.change}`
+                ).join('\n'),
+                inline: false
+              }],
+              timestamp: new Date().toISOString(),
+              footer: {
+                text: 'Fantasy Command Center • Critical Alert'
+              }
+            };
 
-          await this.discordNotifier.sendEmbed(embed, 'CRITICAL');
-          logger.info(`🚨 Critical alert sent: ${recentAlerts.length} updates`);
+            await this.discordNotifier.sendEmbed(embed, 'CRITICAL');
+            this.sentAlerts.set(alertKey, now);
+            logger.info(`🚨 Critical alert sent: ${recentAlerts.length} updates`);
+          } else {
+            logger.info(`⏭️ Skipping duplicate alert (last sent ${Math.round((now - lastSent) / (60 * 1000))} minutes ago)`);
+          }
         }
       }
 
