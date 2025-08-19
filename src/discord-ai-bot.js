@@ -138,7 +138,13 @@ class DiscordAIBot {
         return;
       }
 
-      if (question.toLowerCase().includes('draft') && (question.toLowerCase().includes('who') || question.toLowerCase().includes('next') || question.toLowerCase().includes('recommend'))) {
+      // Skip draft handler for injury/general questions even if they contain "draft"
+      const isInjuryQuestion = question.toLowerCase().includes('injur') || 
+                              question.toLowerCase().includes('hurt') ||
+                              question.toLowerCase().includes('health') ||
+                              question.toLowerCase().includes('status');
+
+      if (!isInjuryQuestion && question.toLowerCase().includes('draft') && (question.toLowerCase().includes('who') || question.toLowerCase().includes('next') || question.toLowerCase().includes('recommend'))) {
         await this.handleDraftRecommendation(message);
         return;
       }
@@ -617,7 +623,7 @@ Respond in JSON format for Discord embeds.`;
           .setColor(0xFF8800)
           .addFields({
             name: '🔗 Connect to Draft',
-            value: 'Use `!coach draft connect` or `!coach draft connect [league-id]` first!',
+            value: 'Use `!coach draft connect` first, or paste your draft results for post-draft analysis!',
             inline: false
           });
 
