@@ -8,6 +8,8 @@ const TwitterMonitor = require('./monitoring/twitter-monitor');
 const AdvancedDataMonitor = require('./monitoring/advanced-data-monitor');
 const ScheduledNotifications = require('./monitoring/scheduled-notifications');
 const NewsArticleFetcher = require('./news-article-fetcher');
+const InjuryMonitor = require('./services/injury-monitor');
+const DiscordNotifier = require('./notifications/discord-notifier');
 const { handleSlashCommand } = require('./discord/slash-commands');
 const { registerSlashCommands } = require('./discord/register-commands');
 const winston = require('winston');
@@ -43,6 +45,8 @@ class DiscordAIBot {
     this.dataMonitor = new AdvancedDataMonitor();
     this.scheduledNotifications = new ScheduledNotifications();
     this.newsArticleFetcher = new NewsArticleFetcher();
+    this.discordNotifier = new DiscordNotifier();
+    this.injuryMonitor = new InjuryMonitor(this.discordNotifier, this.claude);
     
     // Bot configuration
     this.botToken = process.env.DISCORD_BOT_TOKEN;
@@ -519,6 +523,10 @@ Respond in JSON format for Discord embeds.`;
       if (process.env.NODE_ENV === 'production') {
         this.scheduledNotifications.start();
         logger.info('🔔 Scheduled notifications started for 24/7 monitoring');
+        
+        // Start injury monitoring
+        this.injuryMonitor.startMonitoring();
+        logger.info('🏥 Injury monitoring started for automated alerts');
       }
       
       logger.info('Discord AI Bot started successfully with full intelligence suite');
@@ -2078,6 +2086,11 @@ Make it ESPN-quality analysis with specific fantasy advice. No generic content.`
 **📰 News & Analysis**
 \`/news\` - Latest fantasy football news with AI summaries
 \`/intel [player]\` - Player intelligence and breaking news
+\`/trending\` - Get trending players from social media
+
+**🏥 Injury Monitoring**
+\`/injury\` - View injury monitoring status
+\`/injury <player>\` - Check specific player injury status
 
 **🏈 Draft Management**  
 \`/draft <player>\` - Add a player to your team
@@ -2095,7 +2108,8 @@ Make it ESPN-quality analysis with specific fantasy advice. No generic content.`
 \`/help\` - Show this help message
 
 💡 **Tip**: Slash commands auto-complete and work in any channel!
-🔄 **Commands update in real-time** - no need to refresh Discord`;
+🔄 **Commands update in real-time** - no need to refresh Discord
+🚨 **NEW**: Automated injury alerts in production mode!`;
   }
 
   async showUserTeam(username) {
@@ -2175,6 +2189,68 @@ Make it ESPN-quality analysis with specific fantasy advice. No generic content.`
     if (days > 0) return `${days}d ${hours}h ${minutes}m`;
     if (hours > 0) return `${hours}h ${minutes}m`;
     return `${minutes}m`;
+  }
+
+  // Injury monitoring command handler
+  async handleInjuryCommand(playerName = null) {
+    try {
+      if (!playerName) {
+        // Show recent injury updates
+        const status = this.injuryMonitor.getStatus();
+        return `🏥 **Injury Monitoring Status**
+
+**System Status:** ${status.isMonitoring ? '✅ Active' : '❌ Inactive'}
+**Last Checked:** ${status.lastChecked ? new Date(status.lastChecked).toLocaleTimeString() : 'Never'}
+**Known Injuries:** ${status.knownInjuries} players tracked
+**Sources:** ${status.sources.join(', ')}
+
+💡 Use \`/injury <player>\` to check a specific player
+🔄 Automated injury alerts are ${status.isMonitoring ? 'enabled' : 'disabled'}`;
+      } else {
+        // Check specific player
+        return `🔍 **Checking ${playerName} injury status...**
+
+⏳ Real-time injury data lookup is being implemented.
+📊 Current status: Manual check required
+
+🏥 **Quick Check Sources:**
+• NFL.com injury reports
+• ESPN injury updates  
+• FantasyPros injury tracker
+
+💡 Automated player-specific injury alerts coming soon!`;
+      }
+    } catch (error) {
+      logger.error('Error in injury command:', error.message);
+      return '❌ Failed to check injury status. Please try again later.';
+    }
+  }
+
+  // Trending players command handler
+  async handleTrendingCommand() {
+    try {
+      return `📈 **Trending Players Analysis**
+
+🔄 **Social Media Monitoring:** Coming Soon
+📊 **Reddit Sentiment Tracking:** In Development
+🐦 **Twitter Buzz Analysis:** Being Implemented
+
+**Current Available Data:**
+• Fantasy news article analysis
+• Expert consensus rankings
+• Recent injury report impacts
+
+💡 **What's Coming:**
+• Real-time Reddit discussion analysis
+• Twitter mention trending
+• Fantasy expert tweet aggregation
+• Breakout player detection
+
+Use \`/news\` for current fantasy headlines and trends!`;
+    } catch (error) {
+      logger.error('Error in trending command:', error.message);
+      return '❌ Failed to get trending data. Please try again later.';
+    }
   }
 
   async stop() {

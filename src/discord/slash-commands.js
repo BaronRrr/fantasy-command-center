@@ -56,6 +56,19 @@ const commands = [
         .setDescription('Player name for specific intel')
         .setRequired(false)),
 
+  // Injury monitoring commands
+  new SlashCommandBuilder()
+    .setName('injury')
+    .setDescription('Check injury reports and status')
+    .addStringOption(option =>
+      option.setName('player')
+        .setDescription('Specific player to check (optional)')
+        .setRequired(false)),
+
+  new SlashCommandBuilder()
+    .setName('trending')
+    .setDescription('Get trending players from social media and news'),
+
   // Help command
   new SlashCommandBuilder()
     .setName('help')
@@ -141,6 +154,19 @@ module.exports = {
         case 'status':
           const statusResult = await discordBot.getSystemStatus();
           await interaction.reply(statusResult);
+          break;
+
+        case 'injury':
+          await interaction.deferReply();
+          const playerName4 = options.getString('player');
+          const injuryResult = await discordBot.handleInjuryCommand(playerName4);
+          await interaction.editReply(injuryResult);
+          break;
+
+        case 'trending':
+          await interaction.deferReply();
+          const trendingResult = await discordBot.handleTrendingCommand();
+          await interaction.editReply(trendingResult);
           break;
 
         case 'update':
