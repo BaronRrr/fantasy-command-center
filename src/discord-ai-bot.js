@@ -1798,7 +1798,7 @@ Focus on value and team needs. Keep it concise for live draft.`;
     
     try {
       // Fetch real fantasy football news articles
-      const articles = await this.newsArticleFetcher.fetchLatestArticles(8);
+      const articles = await this.newsArticleFetcher.fetchLatestArticles(6);
       
       // Create news embed with actual article links
       const newsEmbed = {
@@ -1820,12 +1820,13 @@ Focus on value and team needs. Keep it concise for live draft.`;
         if (highPriority.length > 0) {
           const highPriorityText = highPriority.map(article => {
             const timeAgo = this.getTimeAgo(article.publishedAt);
-            return `🔥 **[${article.title}](${article.url})**\n*${article.source} • ${timeAgo}*`;
+            const shortTitle = article.title.length > 60 ? article.title.substring(0, 60) + '...' : article.title;
+            return `🔥 **[${shortTitle}](${article.url})**\n*${article.source} • ${timeAgo}*`;
           }).join('\n\n');
 
           newsEmbed.fields.push({
             name: '🔥 Breaking News & Analysis',
-            value: highPriorityText.substring(0, 1000),
+            value: highPriorityText.substring(0, 800),
             inline: false
           });
         }
@@ -1833,12 +1834,13 @@ Focus on value and team needs. Keep it concise for live draft.`;
         if (mediumPriority.length > 0) {
           const mediumPriorityText = mediumPriority.map(article => {
             const timeAgo = this.getTimeAgo(article.publishedAt);
-            return `📄 **[${article.title}](${article.url})**\n*${article.source} • ${timeAgo}*`;
+            const shortTitle = article.title.length > 60 ? article.title.substring(0, 60) + '...' : article.title;
+            return `📄 **[${shortTitle}](${article.url})**\n*${article.source} • ${timeAgo}*`;
           }).join('\n\n');
 
           newsEmbed.fields.push({
             name: '📄 More Fantasy News',
-            value: mediumPriorityText.substring(0, 1000),
+            value: mediumPriorityText.substring(0, 800),
             inline: false
           });
         }
