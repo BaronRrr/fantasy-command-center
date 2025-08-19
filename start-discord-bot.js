@@ -1,17 +1,29 @@
-// Load environment variables
-require('dotenv').config();
-
+// Load and validate environment configuration
+const { validateEnvironment, config } = require('./config/config');
+const HealthCheck = require('./src/health-check');
 const DiscordAIBot = require('./src/discord-ai-bot');
 
 async function startDiscordBot() {
-  console.log('🤖 Starting Fantasy AI Discord Chat Bot...\n');
+  console.log('🤖 Starting Fantasy Command Center Discord Bot...\n');
+  
+  // Validate environment variables first
+  try {
+    validateEnvironment();
+  } catch (error) {
+    console.error('❌ Environment validation failed:', error.message);
+    process.exit(1);
+  }
+  
+  // Initialize health check server
+  const healthCheck = new HealthCheck();
+  healthCheck.start(config.app.port);
   
   // Debug environment variables in production
-  if (process.env.NODE_ENV === 'production') {
-    console.log('🔍 Environment check:');
-    console.log('- NODE_ENV:', process.env.NODE_ENV);
-    console.log('- Discord Token:', process.env.DISCORD_BOT_TOKEN ? '✅ Found' : '❌ Missing');
-    console.log('- Claude API Key:', process.env.CLAUDE_API_KEY ? '✅ Found' : '❌ Missing');
+  if (config.app.nodeEnv === 'production') {
+    console.log('🔍 Production environment validated');
+    console.log('- Discord Token: ✅ Found');
+    console.log('- Claude API Key: ✅ Found');
+    console.log('- Health Check: ✅ Running on port', config.app.port);
   }
   
   // Check if Discord.js is installed
@@ -29,56 +41,69 @@ async function startDiscordBot() {
     }
   }
   
-  // Check for bot token
-  if (!process.env.DISCORD_BOT_TOKEN) {
-    console.log('❌ Missing DISCORD_BOT_TOKEN in .env file');
-    console.log('\n📋 Setup Instructions:');
-    console.log('1. Go to https://discord.com/developers/applications');
-    console.log('2. Create a new application called "Fantasy AI Coach"');
-    console.log('3. Go to Bot section and copy the Bot Token');
-    console.log('4. Add to .env file: DISCORD_BOT_TOKEN=your_token_here');
-    console.log('5. Add bot to your Discord server with Send Messages permission');
-    console.log('\n📖 See DISCORD-AI-CHAT-BOT-GUIDE.txt for complete setup');
-    return;
-  }
-  
   const bot = new DiscordAIBot();
   
   try {
     const started = await bot.start();
     
     if (started) {
-      console.log('🎉 SUCCESS! Fantasy AI Chat Bot is running!');
-      console.log('\n💬 How to use in Discord:');
-      console.log('   !coach Should I draft Josh Jacobs?');
-      console.log('   !coach Weather impact for Bills game?');
-      console.log('   @Fantasy AI Coach Trade advice needed');
-      console.log('\n📱 The bot works in these channels:');
-      console.log('   - #draft-central');
-      console.log('   - #ai-analysis');
-      console.log('   - #league-intelligence');
-      console.log('   - #general');
-      console.log('\n🆘 Type "!coach help" in Discord for more commands');
-      console.log('\n⚡ Your Fantasy Command Center is now FULLY INTERACTIVE!');
+      // Update health check status
+      healthCheck.updateDiscordStatus(true);
+      healthCheck.updateSchedulerStatus(true, 1);
       
-      // Keep the process running
+      console.log('🎉 SUCCESS! Fantasy Command Center is ONLINE!');
+      console.log('\n💬 Discord Bot Commands:');
+      console.log('   .news        - Latest fantasy news articles');
+      console.log('   .my Player   - Add player to your team');
+      console.log('   .analyze     - AI draft analysis');
+      console.log('   .clear       - Reset draft data');
+      console.log('   .help        - Show all commands');
+      console.log('\n📱 Active Channels:');
+      console.log('   - #draft-central (main commands)');
+      console.log('   - #ai-analysis (in-depth analysis)');
+      console.log('   - #newsarticles (automated news)');
+      console.log('\n🏥 Health Check Endpoints:');
+      console.log(`   - http://localhost:${config.app.port}/health`);
+      console.log(`   - http://localhost:${config.app.port}/ready`);
+      console.log(`   - http://localhost:${config.app.port}/status`);
+      console.log('\n⚡ 24/7 Fantasy Intelligence Active!');
+      
+      // Graceful shutdown handling
       process.on('SIGINT', async () => {
-        console.log('\n🛑 Shutting down Discord bot...');
+        console.log('\n🛑 Shutting down Fantasy Command Center...');
+        healthCheck.updateDiscordStatus(false);
+        healthCheck.stop();
+        await bot.stop();
+        console.log('✅ Shutdown complete');
+        process.exit(0);
+      });
+      
+      process.on('SIGTERM', async () => {
+        console.log('\n🛑 Received SIGTERM, shutting down...');
+        healthCheck.updateDiscordStatus(false);
+        healthCheck.stop();
         await bot.stop();
         process.exit(0);
       });
       
     } else {
-      console.log('❌ Failed to start Discord bot. Check your bot token and permissions.');
+      healthCheck.updateDiscordStatus(false);
+      console.log('❌ Failed to start Discord bot. Check configuration.');
     }
     
   } catch (error) {
+    healthCheck.updateDiscordStatus(false);
     console.error('❌ Error starting Discord bot:', error.message);
-    console.log('\n🔧 Troubleshooting:');
-    console.log('1. Verify DISCORD_BOT_TOKEN is correct');
-    console.log('2. Ensure bot has been added to your Discord server');
-    console.log('3. Check bot permissions (Send Messages, Read Message History)');
-    console.log('4. Verify you have discord.js installed: npm install discord.js');
+    console.log('\n🔧 Check Railway logs for detailed error information');
+    
+    // Send error alert if ops webhook configured
+    if (process.env.DISCORD_OPS_WEBHOOK) {
+      const discordUtils = require('./src/utils/discord-utils');
+      await discordUtils.sendErrorAlert(error, { 
+        service: 'discord-bot-startup',
+        environment: config.app.nodeEnv 
+      });
+    }
   }
 }
 

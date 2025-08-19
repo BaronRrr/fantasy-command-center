@@ -1,11 +1,11 @@
-const axios = require('axios');
-const config = require('../../config');
+const { config } = require('../../config/config');
+const discordUtils = require('../utils/discord-utils');
 
 class DiscordNotifier {
   constructor() {
-    this.webhookUrl = config.discord.webhookUrl || config.notifications.discord.webhookURL;
-    this.newsWebhookUrl = process.env.DISCORD_NEWS_WEBHOOK;
-    this.colors = config.notifications.discord.colors;
+    this.webhookUrl = config.discord.webhookUrl;
+    this.newsWebhookUrl = config.discord.newsWebhookUrl;
+    this.colors = config.discord.colors;
   }
 
   async sendNotification(notification, channel = 'draft-central') {
@@ -17,20 +17,18 @@ class DiscordNotifier {
     }
 
     try {
-      const payload = {
-        embeds: [{
-          title: notification.title,
-          description: notification.description,
-          color: notification.color || this.colors.INFO,
-          fields: notification.fields || [],
-          timestamp: notification.timestamp || new Date().toISOString(),
-          footer: {
-            text: `Fantasy Command Center • ${channel}`
-          }
-        }]
-      };
+      const embed = discordUtils.createSafeEmbed({
+        title: notification.title,
+        description: notification.description,
+        color: notification.color || this.colors.INFO,
+        fields: notification.fields || [],
+        timestamp: notification.timestamp || new Date().toISOString(),
+        footer: {
+          text: `Fantasy Command Center • ${channel}`
+        }
+      });
 
-      await axios.post(this.webhookUrl, payload);
+      await discordUtils.sendWebhook(this.webhookUrl, { embeds: [embed] });
       console.log(`✅ Discord notification sent to ${channel}`);
 
     } catch (error) {
@@ -39,6 +37,13 @@ class DiscordNotifier {
       console.log('📢 NOTIFICATION:');
       console.log(`   ${notification.title}`);
       console.log(`   ${notification.description}`);
+      
+      // Send error alert
+      await discordUtils.sendErrorAlert(error, {
+        service: 'discord-notifier',
+        channel: channel,
+        notification: notification.title
+      });
     }
   }
 
@@ -52,8 +57,8 @@ class DiscordNotifier {
     }
 
     try {
-      const payload = { embeds: [embed] };
-      await axios.post(this.webhookUrl, payload);
+      const safeEmbed = discordUtils.validateEmbed(embed);
+      await discordUtils.sendWebhook(this.webhookUrl, { embeds: [safeEmbed] });
       console.log(`✅ Discord embed sent (${priority})`);
 
     } catch (error) {
@@ -61,6 +66,13 @@ class DiscordNotifier {
       console.log('📢 EMBED:');
       console.log(`   ${embed.title}`);
       console.log(`   ${embed.description}`);
+      
+      // Send error alert
+      await discordUtils.sendErrorAlert(error, {
+        service: 'discord-notifier',
+        method: 'sendEmbed',
+        priority: priority
+      });
     }
   }
 
@@ -76,8 +88,8 @@ class DiscordNotifier {
     }
 
     try {
-      const payload = { embeds: [embed] };
-      await axios.post(webhookUrl, payload);
+      const safeEmbed = discordUtils.validateEmbed(embed);
+      await discordUtils.sendWebhook(webhookUrl, { embeds: [safeEmbed] });
       console.log(`📰 News alert sent to #newsarticles`);
 
     } catch (error) {
@@ -85,6 +97,13 @@ class DiscordNotifier {
       console.log('📰 NEWS ALERT:');
       console.log(`   ${embed.title}`);
       console.log(`   ${embed.description}`);
+      
+      // Send error alert
+      await discordUtils.sendErrorAlert(error, {
+        service: 'discord-notifier',
+        method: 'sendNewsAlert',
+        channel: 'newsarticles'
+      });
     }
   }
 
