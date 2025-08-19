@@ -49,7 +49,8 @@ class DiscordAIBot {
       'draft-central',
       'ai-analysis', 
       'league-intelligence',
-      'general'
+      'general',
+      'newsarticles'
     ];
     
     // Draft state for manual tracking
