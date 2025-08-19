@@ -2059,10 +2059,16 @@ Make it ESPN-quality analysis with specific fantasy advice. No generic content.`
       const { REST, Routes } = require('discord.js');
       const { commands } = require('./discord/slash-commands');
       
+      if (!this.client.application) {
+        logger.warn('⚠️ Client application not ready, retrying in 2 seconds...');
+        setTimeout(() => this.registerSlashCommands(), 2000);
+        return;
+      }
+      
       const rest = new REST({ version: '10' }).setToken(this.botToken);
       const clientId = this.client.application.id;
       
-      logger.info(`📝 Registering ${commands.length} slash commands globally...`);
+      logger.info(`📝 Registering ${commands.length} slash commands globally for client ${clientId}...`);
       
       const data = await rest.put(
         Routes.applicationCommands(clientId),
@@ -2074,8 +2080,19 @@ Make it ESPN-quality analysis with specific fantasy advice. No generic content.`
         logger.info(`   /${cmd.name} - ${cmd.description}`);
       });
       
+      logger.info('⏱️ Slash commands will be available in Discord within 1-5 minutes');
+      
     } catch (error) {
-      logger.error('❌ Failed to register slash commands:', error.message);
+      logger.error('❌ Failed to register slash commands:', error);
+      
+      // Provide specific error help
+      if (error.code === 50001) {
+        logger.error('💡 Bot token may be invalid or missing permissions');
+      } else if (error.code === 50013) {
+        logger.error('💡 Bot needs "applications.commands" scope - reinvite bot with proper permissions');
+      } else if (error.rawError?.message?.includes('401')) {
+        logger.error('💡 Authentication failed - check DISCORD_BOT_TOKEN environment variable');
+      }
     }
   }
 
