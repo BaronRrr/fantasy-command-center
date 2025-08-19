@@ -398,6 +398,57 @@ class TrendingAnalyzer {
     return true;
   }
 
+  createPlayerSummary(playerName, rawText, trendTypes) {
+    // Clean up the raw text and create a meaningful summary
+    let text = rawText.trim();
+    
+    // Remove common truncation indicators
+    text = text.replace(/\.\.\.$/, '');
+    
+    // Fix common parsing issues
+    text = text.replace(/([a-z])([A-Z])/g, '$1 $2'); // Add spaces between words
+    text = text.replace(/\s+/g, ' '); // Normalize spaces
+    
+    // If it's a mangled sentence, try to create a better summary
+    if (text.includes('Will Not Play Tonight') || text.includes('Amidst Uncertain')) {
+      // This looks like a title/headline that got parsed poorly
+      if (trendTypes.includes('injury')) {
+        return `${playerName} has injury concerns affecting his availability`;
+      } else if (trendTypes.includes('opportunity')) {
+        return `${playerName} seeing increased opportunity or role change`;
+      } else {
+        return `${playerName} generating discussion in fantasy community`;
+      }
+    }
+    
+    // For injury-related trends
+    if (text.toLowerCase().includes('placed on ir') || text.toLowerCase().includes('injured reserve')) {
+      return `${playerName} placed on injured reserve, impacting fantasy value`;
+    }
+    
+    if (text.toLowerCase().includes('questionable') || text.toLowerCase().includes('doubtful')) {
+      return `${playerName} has uncertain game status due to injury`;
+    }
+    
+    // For general news, try to extract key info
+    if (text.length > 100) {
+      // Try to get the first complete sentence
+      const sentences = text.split(/[.!?]+/);
+      if (sentences.length > 0 && sentences[0].length > 20) {
+        return sentences[0].trim() + (sentences[0].endsWith('.') ? '' : '.');
+      }
+    }
+    
+    // If all else fails, truncate cleanly
+    if (text.length > 80) {
+      const truncated = text.substring(0, 77);
+      const lastSpace = truncated.lastIndexOf(' ');
+      return lastSpace > 40 ? truncated.substring(0, lastSpace) + '...' : truncated + '...';
+    }
+    
+    return text;
+  }
+
   categorizeTrend(text) {
     const categories = {
       'breakout': ['breakout', 'emerging', 'rising', 'sleeper', 'diamond', 'target', 'opportunity'],
@@ -547,50 +598,52 @@ class TrendingAnalyzer {
 
   // Format for Discord display
   formatForDiscord(analysis) {
-    let response = `🔥 **Trending Players Analysis**\n\n`;
+    let response = `**Trending Players Analysis**\n\n`;
     
     if (analysis.trending && analysis.trending.length > 0) {
-      response += `**📈 Top Trending Players:**\n`;
+      response += `**Top Trending Players:**\n`;
       analysis.trending.slice(0, 5).forEach((player, index) => {
         // Get player info for context
         const playerInfo = this.getPlayerInfo ? this.getPlayerInfo(player.name) : null;
-        const position = playerInfo?.position || playerInfo?.pos || 'N/A';
-        const team = playerInfo?.team || playerInfo?.current_team || 'N/A';
-        const playerDetails = position !== 'N/A' || team !== 'N/A' ? ` (${position}, ${team})` : '';
+        const position = playerInfo?.position || playerInfo?.pos || '';
+        const team = playerInfo?.team || playerInfo?.current_team || '';
+        const playerDetails = position && team ? ` (${position}, ${team})` : '';
         
-        // Get trending reason
+        // Get trending reason and clean summary
         const trendTypes = Array.from(player.trendTypes || []).join(', ');
-        const reasons = player.reasons && player.reasons.length > 0 ? 
-          `\n      💬 "${player.reasons[0].substring(0, 80)}..."` : '';
-        const whyTrending = trendTypes ? `\n      📈 Trending: ${trendTypes}` : '';
+        const rawReason = player.reasons && player.reasons.length > 0 ? player.reasons[0] : '';
         
-        response += `${index + 1}. **${player.name}**${playerDetails} (Impact: ${player.fantasyImpact}/10)\n`;
-        response += `   └ ${player.recommendation} - ${player.mentions} mentions across ${player.sources.size} sources${whyTrending}${reasons}\n`;
+        // Create clean summary from the raw reason
+        let summary = '';
+        if (rawReason) {
+          summary = this.createPlayerSummary(player.name, rawReason, trendTypes);
+        }
+        
+        response += `**${index + 1}. ${player.name}**${playerDetails}\n`;
+        response += `Impact: ${player.fantasyImpact}/10 | Recommendation: ${player.recommendation}\n`;
+        
+        if (trendTypes) {
+          response += `Trending: ${trendTypes}\n`;
+        }
+        
+        if (summary) {
+          response += `Summary: ${summary}\n`;
+        }
+        
+        response += `Sources: ${player.mentions} mentions across ${player.sources.size} platforms\n\n`;
       });
-      response += `\n`;
     } else {
-      response += `**📈 Top Trending Players:**\nNo significant trending activity detected from current sources.\n\n`;
+      response += `**Top Trending Players:**\nNo significant trending activity detected.\n\n`;
     }
 
-    response += `**🎯 Categories:**\n`;
+    response += `**Categories:**\n`;
     Object.entries(analysis.categories).forEach(([category, players]) => {
-      response += `• **${category}:** ${players}\n`;
+      response += `${category}: ${players}\n`;
     });
 
-    response += `\n**📊 Data Sources:**`;
-    if (analysis.dataSourcesUsed) {
-      response += `\n${analysis.dataSourcesUsed.map(source => `   ✅ ${source}`).join('\n')}`;
-    } else {
-      response += ` ${analysis.source}`;
-    }
-    
-    response += `\n⏰ **Generated:** ${new Date(analysis.generated).toLocaleTimeString()}`;
+    response += `\nGenerated: ${new Date(analysis.generated).toLocaleTimeString()}`;
     if (analysis.nextUpdate) {
-      response += `\n🔄 ${analysis.nextUpdate}`;
-    }
-    
-    if (analysis.tip) {
-      response += `\n\n💡 **Tip:** ${analysis.tip}`;
+      response += ` | ${analysis.nextUpdate}`;
     }
 
     return response;
