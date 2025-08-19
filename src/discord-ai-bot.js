@@ -2353,7 +2353,8 @@ Make it ESPN-quality analysis with specific fantasy advice. No generic content.`
       
       // Use the new advanced trending analyzer
       if (!this.trendingAnalyzer) {
-        const TrendingAnalyzer = require('../services/trending-analyzer');
+        const path = require('path');
+        const TrendingAnalyzer = require(path.join(__dirname, 'services', 'trending-analyzer'));
         this.trendingAnalyzer = new TrendingAnalyzer(this.playerDatabase);
       }
       
