@@ -4,6 +4,7 @@ const config = require('../../config');
 class DiscordNotifier {
   constructor() {
     this.webhookUrl = config.discord.webhookUrl || config.notifications.discord.webhookURL;
+    this.newsWebhookUrl = process.env.DISCORD_NEWS_WEBHOOK;
     this.colors = config.notifications.discord.colors;
   }
 
@@ -58,6 +59,30 @@ class DiscordNotifier {
     } catch (error) {
       console.error('❌ Failed to send Discord embed:', error.message);
       console.log('📢 EMBED:');
+      console.log(`   ${embed.title}`);
+      console.log(`   ${embed.description}`);
+    }
+  }
+
+  // Send breaking news to dedicated news channel
+  async sendNewsAlert(embed) {
+    const webhookUrl = this.newsWebhookUrl || this.webhookUrl; // Fallback to main webhook
+    
+    if (!webhookUrl) {
+      console.log('📰 NEWS ALERT (Discord disabled):');
+      console.log(`   ${embed.title}`);
+      console.log(`   ${embed.description}`);
+      return;
+    }
+
+    try {
+      const payload = { embeds: [embed] };
+      await axios.post(webhookUrl, payload);
+      console.log(`📰 News alert sent to #newsarticles`);
+
+    } catch (error) {
+      console.error('❌ Failed to send news alert:', error.message);
+      console.log('📰 NEWS ALERT:');
       console.log(`   ${embed.title}`);
       console.log(`   ${embed.description}`);
     }
