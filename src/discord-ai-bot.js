@@ -2378,24 +2378,25 @@ Format as clear bullet points.`;
         analysisSource = `${recentNews.length} recent articles`;
         
       } else {
-        // Fallback to general fantasy knowledge during offseason/low news periods
-        trendingPrompt = `It's currently the NFL offseason with limited news. Provide a trending analysis based on current fantasy football consensus for 2024 season preparation:
+        // Fallback to current season trending analysis when news is limited
+        // TODO: Update to 2026 season after 2025 fantasy season ends
+        trendingPrompt = `Provide current trending fantasy football players analysis for the 2025 season based on recent developments and current fantasy consensus:
 
-Identify 5 trending players for fantasy managers to watch:
-1. Rising ADP players getting buzz
-2. Sleeper picks gaining momentum  
-3. Players with changing situations
-4. Rookie/sophomore breakout candidates
-5. Value picks at their position
+Identify 5 trending players right now:
+1. Players with rising trade/waiver value
+2. Breakout candidates gaining momentum
+3. Players affected by recent team changes
+4. High-upside targets for dynasty/keeper
+5. Current buy-low/sell-high opportunities
 
 For each player provide:
 - Name and position/team
-- Why they're trending (ADP rise, situation change, etc.)
+- Why they're trending right now
 - Fantasy impact rating (1-10) 
-- Draft strategy recommendation
+- Immediate action recommendation
 
-Focus on actionable insights for fantasy drafts and roster building. Be specific and concise.`;
-        analysisSource = 'fantasy consensus & 2024 season outlook';
+Focus on current season relevance and actionable fantasy moves. Be specific about timing and opportunity.`;
+        analysisSource = 'current fantasy trends & market analysis';
       }
 
       const analysis = await this.claudeClient.makeRequest([{
