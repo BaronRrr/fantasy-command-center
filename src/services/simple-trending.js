@@ -16,7 +16,8 @@ const logger = winston.createLogger({
 class SimpleTrendingAnalyzer {
   constructor() {
     this.cache = new Map();
-    this.cacheExpiry = 15 * 60 * 1000; // 15 minutes cache
+    this.cacheExpiry = 1 * 60 * 1000; // 1 minute cache for testing
+    logger.info('🔥 SimpleTrendingAnalyzer initialized - new version with Reddit post titles');
   }
 
   async getTrendingPlayers() {
@@ -27,7 +28,7 @@ class SimpleTrendingAnalyzer {
         return cached.data;
       }
 
-      logger.info('🔍 Fetching trending players from Reddit...');
+      logger.info('🔍 Fetching trending players from Reddit with new SimpleTrendingAnalyzer...');
       
       const url = 'https://www.reddit.com/r/fantasyfootball/hot.json?limit=50';
       const response = await axios.get(url, {
