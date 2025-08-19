@@ -2349,101 +2349,38 @@ Make it ESPN-quality analysis with specific fantasy advice. No generic content.`
   // Trending players command handler
   async handleTrendingCommand() {
     try {
-      logger.info('🔥 Generating trending players analysis...');
+      logger.info('🔥 Generating comprehensive trending analysis...');
       
-      // Try to fetch recent news first
-      const recentNews = await this.newsArticleFetcher.fetchLatestArticles(15);
-      
-      let trendingPrompt;
-      let analysisSource;
-      
-      if (recentNews && recentNews.length > 3) {
-        // Use news-based analysis if we have sufficient articles
-        const newsContent = recentNews.map(article => 
-          `${article.title}\n${article.summary || article.description || ''}`
-        ).join('\n\n');
-        
-        trendingPrompt = `Analyze these recent fantasy football news articles and identify the top 5 trending players right now:
-
-Recent Fantasy News:
-${newsContent}
-
-Provide top 5 trending players with:
-1. Player name and position
-2. Why they're trending 
-3. Fantasy impact rating (1-10)
-4. Action recommendation
-
-Format as clear bullet points.`;
-        analysisSource = `${recentNews.length} recent articles`;
-        
-      } else {
-        // Fallback to current season trending analysis when news is limited
-        // TODO: Update to 2026 season after 2025 fantasy season ends
-        trendingPrompt = `Provide current trending fantasy football players analysis for the 2025 season based on recent developments and current fantasy consensus:
-
-Identify 5 trending players right now:
-1. Players with rising trade/waiver value
-2. Breakout candidates gaining momentum
-3. Players affected by recent team changes
-4. High-upside targets for dynasty/keeper
-5. Current buy-low/sell-high opportunities
-
-For each player provide:
-- Name and position/team
-- Why they're trending right now
-- Fantasy impact rating (1-10) 
-- Immediate action recommendation
-
-Focus on current season relevance and actionable fantasy moves. Be specific about timing and opportunity.`;
-        analysisSource = 'current fantasy trends & market analysis';
+      // Use the new advanced trending analyzer
+      if (!this.trendingAnalyzer) {
+        const TrendingAnalyzer = require('../services/trending-analyzer');
+        this.trendingAnalyzer = new TrendingAnalyzer(this.playerDatabase);
       }
-
-      const analysis = await this.claude.makeRequest([{
-        role: 'user',
-        content: trendingPrompt
-      }], 'You are a fantasy football trending analyst. Be concise and actionable with specific player recommendations.');
-
-      const trendingText = typeof analysis === 'string' ? analysis : 
-                          analysis.content?.[0]?.text || analysis.text || analysis.message || 
-                          'Unable to generate trending analysis.';
-
-      return `🔥 **Trending Players Analysis**
-
-${trendingText}
-
-📊 **Analysis based on:** ${analysisSource}
-⏰ **Updated:** ${new Date().toLocaleTimeString()}
-💡 **Tip:** Use \`.intel <player>\` for detailed player analysis`;
+      
+      const analysis = await this.trendingAnalyzer.generateTrendingAnalysis();
+      return this.trendingAnalyzer.formatForDiscord(analysis);
 
     } catch (error) {
       logger.error('Error in trending command:', error);
       logger.error('Error stack:', error.stack);
       
-      // More specific error handling
-      if (error.message && error.message.includes('Claude')) {
-        return `❌ AI analysis service temporarily unavailable. 
-
-🔥 **Current Focus Areas:**
-• **Trade Targets:** Look for undervalued players
-• **Waiver Pickups:** High-upside adds available
-• **Sell High:** Players with inflated value  
-• **Buy Low:** Struggling players with potential
-• **Streaming Options:** Position-specific plays
-
-💡 Use \`.news\` for latest player updates!`;
-      }
-      
-      return `❌ Failed to generate trending analysis: ${error.message}
+      // Fallback to manual trending categories
+      return `❌ Advanced trending analysis temporarily unavailable.
 
 🔥 **Manual Trending Categories:**
-• **Breakout Watch:** Players showing increased usage
-• **Injury Returns:** Players coming back from IR
-• **Rookie Impact:** First-year players gaining roles
+• **Breakout Watch:** Players showing increased usage patterns
+• **Injury Returns:** Players coming back from IR/injury status  
+• **Opportunity Risers:** Backup players gaining starter roles
 • **Trade Rumors:** Players potentially changing teams
-• **Depth Chart:** Backup players getting opportunities
+• **Waiver Targets:** High-upside free agents available
 
-💡 **Tip:** Monitor waiver wire and trade markets!`;
+📱 **Reddit Trends:** Check r/fantasyfootball for community buzz
+📰 **News Sources:** Monitor ESPN, FantasyPros, Sleeper alerts  
+📊 **ADP Movement:** Track rising/falling draft positions
+
+💡 **Tip:** Use \`.news\` for latest headlines and \`.injury\` for health updates!
+
+⏰ Updated: ${new Date().toLocaleTimeString()}`;
     }
   }
 
