@@ -52,15 +52,15 @@ class InjuryMonitor {
       }
     }, 60 * 60 * 1000); // 1 hour
     
-    // Quick check every 2 minutes during peak news hours (12-7 PM EST)
-    setInterval(async () => {
-      const now = new Date();
-      const hour = now.getHours();
-      
-      if (hour >= 12 && hour <= 19) {
-        await this.quickInjuryCheck();
-      }
-    }, 2 * 60 * 1000); // 2 minutes
+    // Quick check disabled - only use on-command or hourly monitoring
+    // setInterval(async () => {
+    //   const now = new Date();
+    //   const hour = now.getHours();
+    //   
+    //   if (hour >= 12 && hour <= 19) {
+    //     await this.quickInjuryCheck();
+    //   }
+    // }, 2 * 60 * 1000); // 2 minutes
     
     logger.info('✅ Injury monitoring active - checking every hour');
   }

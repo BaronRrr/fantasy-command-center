@@ -218,27 +218,39 @@ class TrendingAnalyzer {
       
       for (const post of posts) {
         const title = post.data.title;
+        const selftext = post.data.selftext || '';
         const score = post.data.score;
         const comments = post.data.num_comments;
         const created = post.data.created_utc;
+        const permalink = post.data.permalink;
         
         // Only consider recent posts (last 24 hours) with decent engagement
         const hoursOld = (Date.now() / 1000 - created) / 3600;
         if (hoursOld > 24 || score < 10) continue;
         
-        // Extract player names from titles
-        const players = this.extractPlayerNames(title);
+        // Combine title and content for better analysis
+        const fullContent = `${title} ${selftext}`.substring(0, 500);
+        
+        // Extract player names from content
+        const players = this.extractPlayerNames(fullContent);
         
         for (const player of players) {
+          // Analyze WHY this player is trending
+          const trendingReason = this.analyzeRedditTrendingReason(player, fullContent, title);
+          
           trending.push({
             player: player,
             source: 'reddit',
             score: score,
             comments: comments,
             title: title,
-            trend_type: this.categorizeTrend(title.toLowerCase()),
+            fullContent: fullContent,
+            permalink: permalink,
+            trend_type: this.categorizeTrend(fullContent.toLowerCase()),
+            trending_reason: trendingReason,
             hours_old: hoursOld,
-            engagement: score + (comments * 2) // Weight comments higher
+            engagement: score + (comments * 2), // Weight comments higher
+            context: this.extractKeyContext(player, fullContent)
           });
         }
       }
@@ -248,6 +260,83 @@ class TrendingAnalyzer {
       logger.error('Error parsing Reddit data:', error.message);
       return [];
     }
+  }
+
+  analyzeRedditTrendingReason(playerName, content, title) {
+    const lowerContent = content.toLowerCase();
+    const lowerTitle = title.toLowerCase();
+    
+    // Check for specific trending reasons
+    if (lowerContent.includes('signed') || lowerContent.includes('signing')) {
+      return 'New team signing';
+    }
+    
+    if (lowerContent.includes('starting qb') || lowerContent.includes('starting quarterback')) {
+      return 'Named starting QB';
+    }
+    
+    if (lowerContent.includes('released') || lowerContent.includes('waived')) {
+      return 'Released from team';
+    }
+    
+    if (lowerContent.includes('traded') || lowerContent.includes('trade')) {
+      return 'Trade discussion';
+    }
+    
+    if (lowerContent.includes('injury') || lowerContent.includes('injured')) {
+      return 'Injury concern';
+    }
+    
+    if (lowerContent.includes('breakout') || lowerContent.includes('sleeper')) {
+      return 'Breakout potential';
+    }
+    
+    if (lowerContent.includes('start') || lowerContent.includes('starter')) {
+      return 'Potential starter role';
+    }
+    
+    if (lowerContent.includes('drop') || lowerContent.includes('sit')) {
+      return 'Fantasy concerns';
+    }
+    
+    if (lowerContent.includes('pickup') || lowerContent.includes('add')) {
+      return 'Waiver wire target';
+    }
+    
+    // Check for discussion patterns
+    if (lowerTitle.includes('discussion') || lowerTitle.includes('thoughts')) {
+      return 'Community discussion';
+    }
+    
+    if (lowerTitle.includes('vs') || lowerTitle.includes('better')) {
+      return 'Player comparison';
+    }
+    
+    return 'General fantasy discussion';
+  }
+
+  extractKeyContext(playerName, content) {
+    // Extract the most relevant sentence mentioning the player
+    const sentences = content.split(/[.!?]+/);
+    
+    for (const sentence of sentences) {
+      if (sentence.toLowerCase().includes(playerName.toLowerCase())) {
+        const cleanSentence = sentence.trim();
+        if (cleanSentence.length > 20 && cleanSentence.length < 150) {
+          return cleanSentence;
+        }
+      }
+    }
+    
+    // Fallback to looking for key phrases around the player name
+    const playerIndex = content.toLowerCase().indexOf(playerName.toLowerCase());
+    if (playerIndex !== -1) {
+      const start = Math.max(0, playerIndex - 50);
+      const end = Math.min(content.length, playerIndex + playerName.length + 50);
+      return content.substring(start, end).trim();
+    }
+    
+    return null;
   }
 
   async getRSSTrending() {
@@ -412,13 +501,32 @@ class TrendingAnalyzer {
     // If it's a mangled sentence, try to create a better summary
     if (text.includes('Will Not Play Tonight') || text.includes('Amidst Uncertain')) {
       // This looks like a title/headline that got parsed poorly
-      if (trendTypes.includes('injury')) {
+      if (trendTypes.includes('roster_move')) {
+        return `${playerName} involved in significant roster move or signing`;
+      } else if (trendTypes.includes('injury')) {
         return `${playerName} has injury concerns affecting his availability`;
       } else if (trendTypes.includes('opportunity')) {
         return `${playerName} seeing increased opportunity or role change`;
       } else {
         return `${playerName} generating discussion in fantasy community`;
       }
+    }
+    
+    // For roster moves (signings, releases, trades)
+    if (text.toLowerCase().includes('signed') || text.toLowerCase().includes('signing')) {
+      return `${playerName} signed to new team, changing fantasy outlook`;
+    }
+    
+    if (text.toLowerCase().includes('released') || text.toLowerCase().includes('waived')) {
+      return `${playerName} released, potential opportunity elsewhere`;
+    }
+    
+    if (text.toLowerCase().includes('starting qb') || text.toLowerCase().includes('starting quarterback')) {
+      return `${playerName} named starting quarterback, major fantasy impact`;
+    }
+    
+    if (text.toLowerCase().includes('traded') || text.toLowerCase().includes('acquired')) {
+      return `${playerName} traded to new team, fantasy value shifting`;
     }
     
     // For injury-related trends
@@ -450,19 +558,48 @@ class TrendingAnalyzer {
   }
 
   categorizeTrend(text) {
-    const categories = {
-      'breakout': ['breakout', 'emerging', 'rising', 'sleeper', 'diamond', 'target', 'opportunity'],
-      'injury': ['injury', 'hurt', 'out', 'ir', 'questionable', 'doubtful', 'injured'],
-      'opportunity': ['starter', 'promoted', 'depth chart', 'backup', 'role', 'touches'],
-      'trade': ['trade', 'traded', 'rumors', 'speculation', 'move', 'signing'],
-      'waiver': ['waiver', 'pickup', 'add', 'claim', 'available'],
-      'rising_adp': ['adp', 'draft', 'round', 'value', 'climbing']
-    };
-
-    for (const [category, keywords] of Object.entries(categories)) {
-      if (keywords.some(keyword => text.includes(keyword))) {
-        return category;
-      }
+    const lowerText = text.toLowerCase();
+    
+    // Check for roster moves first (highest priority)
+    const rosterMoveKeywords = ['signed', 'signing', 'released', 'waived', 'claimed', 'traded', 'acquired', 'starting qb', 'starting quarterback', 'named starter', 'new team'];
+    if (rosterMoveKeywords.some(keyword => lowerText.includes(keyword))) {
+      return 'roster_move';
+    }
+    
+    // Check for opportunity changes
+    const opportunityKeywords = ['starter', 'starting', 'promoted', 'depth chart', 'backup', 'role', 'touches', 'target share', 'rb1', 'wr1', 'lead back'];
+    if (opportunityKeywords.some(keyword => lowerText.includes(keyword))) {
+      return 'opportunity';
+    }
+    
+    // Check for injury news
+    const injuryKeywords = ['injury', 'injured', 'hurt', 'ir', 'injured reserve', 'questionable', 'doubtful', 'out', 'dnp', 'limited'];
+    if (injuryKeywords.some(keyword => lowerText.includes(keyword))) {
+      return 'injury';
+    }
+    
+    // Check for breakout potential
+    const breakoutKeywords = ['breakout', 'emerging', 'rising', 'sleeper', 'diamond', 'target', 'upside', 'bounce back'];
+    if (breakoutKeywords.some(keyword => lowerText.includes(keyword))) {
+      return 'breakout';
+    }
+    
+    // Check for trade/speculation
+    const tradeKeywords = ['trade', 'traded', 'rumors', 'speculation', 'move', 'deal'];
+    if (tradeKeywords.some(keyword => lowerText.includes(keyword))) {
+      return 'trade';
+    }
+    
+    // Check for waiver wire relevance
+    const waiverKeywords = ['waiver', 'pickup', 'add', 'claim', 'available', 'free agent'];
+    if (waiverKeywords.some(keyword => lowerText.includes(keyword))) {
+      return 'waiver';
+    }
+    
+    // Check for draft value changes
+    const adpKeywords = ['adp', 'draft', 'round', 'value', 'climbing', 'falling', 'stock'];
+    if (adpKeywords.some(keyword => lowerText.includes(keyword))) {
+      return 'rising_adp';
     }
 
     return 'general';
@@ -622,15 +759,28 @@ class TrendingAnalyzer {
         response += `**${index + 1}. ${player.name}**${playerDetails}\n`;
         response += `Impact: ${player.fantasyImpact}/10 | Recommendation: ${player.recommendation}\n`;
         
-        if (trendTypes) {
+        // Show specific trending reason if available from Reddit analysis
+        if (player.trendingReason) {
+          response += `Why Trending: ${player.trendingReason}\n`;
+        } else if (trendTypes) {
           response += `Trending: ${trendTypes}\n`;
         }
         
-        if (summary) {
+        // Show better context if available
+        if (player.context && player.context.length > summary.length) {
+          response += `Context: ${player.context}\n`;
+        } else if (summary) {
           response += `Summary: ${summary}\n`;
         }
         
-        response += `Sources: ${player.mentions} mentions across ${player.sources.size} platforms\n\n`;
+        response += `Sources: ${player.mentions} mentions across ${player.sources.size} platforms\n`;
+        
+        // Add engagement info for transparency
+        if (player.totalScore > 50) {
+          response += `High engagement: ${Math.round(player.totalScore)} points\n`;
+        }
+        
+        response += `\n`;
       });
     } else {
       response += `**Top Trending Players:**\nNo significant trending activity detected.\n\n`;
