@@ -753,6 +753,8 @@ Respond in JSON format for Discord embeds.`;
       return await this.handleDraftIntelligence(null, username);
     } else if (command === '.monitor') {
       return this.getMonitoringStatus();
+    } else if (command === '.news') {
+      return await this.handleNewsCommand(username);
     } else if (command === '.help') {
       return this.getDotCommandHelp();
     } else {
@@ -1378,6 +1380,12 @@ Type \`.who\` for recommendations!`;
 \`\`.analyze\`\` - Manual comprehensive analysis
 \`\`.status\`\` - Draft summary
 
+**Intelligence:**
+\`\`.update\`\` - Update all data sources
+\`\`.intel [player]\`\` - Player intelligence report
+\`\`.news\`\` - Send news update to #newsarticles
+\`\`.monitor\`\` - System monitoring status
+
 **Utility:**
 \`\`.team #\`\` - Set your team number (1-12)
 \`\`. [paste]\`\` - Import ESPN draft board (just . then paste)
@@ -1781,6 +1789,80 @@ Focus on value and team needs. Keep it concise for live draft.`;
     }
     
     return response;
+  }
+
+  async handleNewsCommand(username) {
+    console.log(`📰 ${username} requested news update`);
+    
+    try {
+      // Get fresh intelligence data
+      const intelligence = await this.dataMonitor.getDraftIntelligence();
+      
+      // Create news embed for #newsarticles channel
+      const newsEmbed = {
+        title: '📰 Fantasy Football News Update',
+        description: 'Latest fantasy football news and developments',
+        color: 0x1E90FF,
+        fields: [],
+        timestamp: new Date().toISOString(),
+        footer: {
+          text: 'Fantasy Command Center • News Update'
+        }
+      };
+
+      // Critical alerts as breaking news
+      if (intelligence.critical_alerts.length > 0) {
+        newsEmbed.fields.push({
+          name: '🚨 Breaking News',
+          value: intelligence.critical_alerts.slice(0, 3).map(alert => 
+            `• **${alert.player || alert.team}**: ${alert.fantasy_impact || alert.change}`
+          ).join('\n') || 'No critical updates',
+          inline: false
+        });
+      }
+
+      // Trending players as developing stories
+      if (intelligence.trending_players.length > 0) {
+        newsEmbed.fields.push({
+          name: '📈 Trending Stories',
+          value: intelligence.trending_players.slice(0, 3).map(player => 
+            `• **${player.name}** (${player.mentions} mentions)`
+          ).join('\n'),
+          inline: true
+        });
+      }
+
+      // Opportunities as fantasy insights
+      if (intelligence.opportunities.length > 0) {
+        newsEmbed.fields.push({
+          name: '💡 Fantasy Insights',
+          value: intelligence.opportunities.slice(0, 3).map(opp => 
+            `• **${opp.player}**: ${opp.fantasy_impact}`
+          ).join('\n'),
+          inline: true
+        });
+      }
+
+      if (newsEmbed.fields.length === 0) {
+        newsEmbed.fields.push({
+          name: '✅ All Quiet',
+          value: 'No major developments in fantasy football right now. Keep monitoring!',
+          inline: false
+        });
+      }
+
+      // Send to dedicated news channel
+      if (this.discordNotifier && this.discordNotifier.sendNewsAlert) {
+        await this.discordNotifier.sendNewsAlert(newsEmbed);
+        return `📰 **News update sent to #newsarticles!**\n\n⏰ Updated: ${new Date().toLocaleTimeString()}`;
+      } else {
+        return `📰 **News Update**\n\n${newsEmbed.fields.map(f => `**${f.name}**\n${f.value}`).join('\n\n')}\n\n⏰ Updated: ${new Date().toLocaleTimeString()}`;
+      }
+
+    } catch (error) {
+      console.error('Failed to get news update:', error.message);
+      return '❌ Failed to get news update. Please try again later.';
+    }
   }
 
   async stop() {
