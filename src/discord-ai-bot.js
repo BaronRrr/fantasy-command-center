@@ -1810,36 +1810,35 @@ Focus on value and team needs. Keep it concise for live draft.`;
         }
       };
 
-      // Critical alerts as breaking news
+      // Get real-time analysis from Claude AI
+      const aiAnalysis = await this.generateNewsAnalysis(intelligence);
+      
+      // Critical alerts with AI analysis
       if (intelligence.critical_alerts.length > 0) {
         newsEmbed.fields.push({
-          name: '🚨 Breaking News',
-          value: intelligence.critical_alerts.slice(0, 3).map(alert => 
+          name: '🚨 Breaking Fantasy News',
+          value: aiAnalysis.breakingNews || intelligence.critical_alerts.slice(0, 2).map(alert => 
             `• **${alert.player || alert.team}**: ${alert.fantasy_impact || alert.change}`
-          ).join('\n') || 'No critical updates',
+          ).join('\n'),
           inline: false
         });
       }
 
-      // Trending players as developing stories
-      if (intelligence.trending_players.length > 0) {
+      // Trending analysis with AI insights
+      if (aiAnalysis.trendingAnalysis) {
         newsEmbed.fields.push({
-          name: '📈 Trending Stories',
-          value: intelligence.trending_players.slice(0, 3).map(player => 
-            `• **${player.name}** (${player.mentions} mentions)`
-          ).join('\n'),
-          inline: true
+          name: '📈 Trending Players Analysis',
+          value: aiAnalysis.trendingAnalysis.substring(0, 1000),
+          inline: false
         });
       }
 
-      // Opportunities as fantasy insights
-      if (intelligence.opportunities.length > 0) {
+      // Waiver wire opportunities  
+      if (aiAnalysis.waiverGems) {
         newsEmbed.fields.push({
-          name: '💡 Fantasy Insights',
-          value: intelligence.opportunities.slice(0, 3).map(opp => 
-            `• **${opp.player}**: ${opp.fantasy_impact}`
-          ).join('\n'),
-          inline: true
+          name: '💎 Waiver Wire Gems',
+          value: aiAnalysis.waiverGems.substring(0, 1000),
+          inline: false
         });
       }
 
@@ -1862,6 +1861,64 @@ Focus on value and team needs. Keep it concise for live draft.`;
     } catch (error) {
       console.error('Failed to get news update:', error.message);
       return '❌ Failed to get news update. Please try again later.';
+    }
+  }
+
+  async generateNewsAnalysis(intelligence) {
+    try {
+      const newsPrompt = `FANTASY FOOTBALL NEWS ANALYSIS
+
+Current Data:
+- Critical Alerts: ${JSON.stringify(intelligence.critical_alerts.slice(0, 3), null, 2)}
+- Trending Players: ${JSON.stringify(intelligence.trending_players.slice(0, 5), null, 2)}
+- Opportunities: ${JSON.stringify(intelligence.opportunities.slice(0, 3), null, 2)}
+
+Create engaging fantasy football news content with:
+
+1. BREAKING NEWS (2-3 detailed stories with fantasy impact):
+   - Injury analysis with timeline and replacement options
+   - Depth chart changes with target adjustments
+   - Trade/signing impacts on fantasy values
+
+2. TRENDING ANALYSIS (why players are buzzing):
+   - What's driving the mentions
+   - Fantasy relevance and actionable advice
+   - Sleeper alerts and avoid warnings
+
+3. WAIVER WIRE GEMS (immediate opportunities):
+   - Pickup percentages and availability
+   - Matchup advantages coming up
+   - Handcuff values and insurance plays
+
+Make it ESPN-quality analysis with specific fantasy advice. No generic content.`;
+
+      const response = await this.claudeAPI.messages.create({
+        model: this.config.ai.claude.model,
+        max_tokens: 1500,
+        temperature: 0.4,
+        messages: [{ role: 'user', content: newsPrompt }]
+      });
+
+      const analysis = response.content[0].text;
+      
+      // Parse the AI response into structured sections
+      const sections = analysis.split(/\d\.\s+/);
+      
+      return {
+        breakingNews: sections[1]?.trim() || null,
+        trendingAnalysis: sections[2]?.trim() || null,
+        waiverGems: sections[3]?.trim() || null,
+        fullAnalysis: analysis
+      };
+
+    } catch (error) {
+      console.error('Failed to generate AI news analysis:', error.message);
+      return {
+        breakingNews: null,
+        trendingAnalysis: null, 
+        waiverGems: null,
+        fullAnalysis: null
+      };
     }
   }
 
