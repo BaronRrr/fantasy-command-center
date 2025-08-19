@@ -69,6 +69,15 @@ class AdvancedDataMonitor {
         update_frequency: 'daily'
       },
       
+      // CBS Fantasy Football (Free)
+      cbs_fantasy: {
+        name: 'CBS Fantasy Football News',
+        url: 'https://www.cbssports.com/fantasy/football/draft-prep/',
+        type: 'web_scraping',
+        priority: 'HIGH',
+        update_frequency: 'hourly'
+      },
+      
       // Practice Reports (Free via Twitter/Web)
       practice_reports: {
         name: 'NFL Practice Participation',
