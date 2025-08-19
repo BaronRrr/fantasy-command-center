@@ -7,6 +7,7 @@ const LiveDraftAnalyzer = require('./discord/live-draft-analyzer');
 const TwitterMonitor = require('./monitoring/twitter-monitor');
 const AdvancedDataMonitor = require('./monitoring/advanced-data-monitor');
 const ScheduledNotifications = require('./monitoring/scheduled-notifications');
+const NewsArticleFetcher = require('./news-article-fetcher');
 const winston = require('winston');
 
 const logger = winston.createLogger({
@@ -39,6 +40,7 @@ class DiscordAIBot {
     this.twitterMonitor = new TwitterMonitor();
     this.dataMonitor = new AdvancedDataMonitor();
     this.scheduledNotifications = new ScheduledNotifications();
+    this.newsArticleFetcher = new NewsArticleFetcher();
     
     // Bot configuration
     this.botToken = process.env.DISCORD_BOT_TOKEN;
@@ -1792,60 +1794,67 @@ Focus on value and team needs. Keep it concise for live draft.`;
   }
 
   async handleNewsCommand(username) {
-    console.log(`📰 ${username} requested news update`);
+    console.log(`📰 ${username} requested latest news articles`);
     
     try {
-      // Get fresh intelligence data
-      const intelligence = await this.dataMonitor.getDraftIntelligence();
+      // Fetch real fantasy football news articles
+      const articles = await this.newsArticleFetcher.fetchLatestArticles(8);
       
-      // Create news embed for #newsarticles channel
+      // Create news embed with actual article links
       const newsEmbed = {
-        title: '📰 Fantasy Football News Update',
-        description: 'Latest fantasy football news and developments',
-        color: 0x1E90FF,
+        title: '📰 Latest Fantasy Football News Articles',
+        description: `Fresh fantasy football news from top sources`,
+        color: 0xFF6B35,
         fields: [],
         timestamp: new Date().toISOString(),
         footer: {
-          text: 'Fantasy Command Center • News Update'
+          text: 'Fantasy Command Center • Live News Feed'
         }
       };
 
-      // Get real-time analysis from Claude AI
-      const aiAnalysis = await this.generateNewsAnalysis(intelligence);
-      
-      // Critical alerts with AI analysis
-      if (intelligence.critical_alerts.length > 0) {
+      if (articles.length > 0) {
+        // Group articles by priority
+        const highPriority = articles.filter(a => a.priority === 'HIGH').slice(0, 4);
+        const mediumPriority = articles.filter(a => a.priority === 'MEDIUM').slice(0, 4);
+
+        if (highPriority.length > 0) {
+          const highPriorityText = highPriority.map(article => {
+            const timeAgo = this.getTimeAgo(article.publishedAt);
+            return `🔥 **[${article.title}](${article.url})**\n*${article.source} • ${timeAgo}*`;
+          }).join('\n\n');
+
+          newsEmbed.fields.push({
+            name: '🔥 Breaking News & Analysis',
+            value: highPriorityText.substring(0, 1000),
+            inline: false
+          });
+        }
+
+        if (mediumPriority.length > 0) {
+          const mediumPriorityText = mediumPriority.map(article => {
+            const timeAgo = this.getTimeAgo(article.publishedAt);
+            return `📄 **[${article.title}](${article.url})**\n*${article.source} • ${timeAgo}*`;
+          }).join('\n\n');
+
+          newsEmbed.fields.push({
+            name: '📄 More Fantasy News',
+            value: mediumPriorityText.substring(0, 1000),
+            inline: false
+          });
+        }
+
+        // Add sources summary
+        const sources = [...new Set(articles.map(a => a.source))];
         newsEmbed.fields.push({
-          name: '🚨 Breaking Fantasy News',
-          value: aiAnalysis.breakingNews || intelligence.critical_alerts.slice(0, 2).map(alert => 
-            `• **${alert.player || alert.team}**: ${alert.fantasy_impact || alert.change}`
-          ).join('\n'),
+          name: '📡 Sources',
+          value: sources.join(' • '),
           inline: false
         });
-      }
 
-      // Trending analysis with AI insights
-      if (aiAnalysis.trendingAnalysis) {
+      } else {
         newsEmbed.fields.push({
-          name: '📈 Trending Players Analysis',
-          value: aiAnalysis.trendingAnalysis.substring(0, 1000),
-          inline: false
-        });
-      }
-
-      // Waiver wire opportunities  
-      if (aiAnalysis.waiverGems) {
-        newsEmbed.fields.push({
-          name: '💎 Waiver Wire Gems',
-          value: aiAnalysis.waiverGems.substring(0, 1000),
-          inline: false
-        });
-      }
-
-      if (newsEmbed.fields.length === 0) {
-        newsEmbed.fields.push({
-          name: '✅ All Quiet',
-          value: 'No major developments in fantasy football right now. Keep monitoring!',
+          name: '⏳ Loading...',
+          value: 'Fantasy news sources are being updated. Try again in a few minutes.',
           inline: false
         });
       }
@@ -1853,14 +1862,31 @@ Focus on value and team needs. Keep it concise for live draft.`;
       // Send to dedicated news channel
       if (this.discordNotifier && this.discordNotifier.sendNewsAlert) {
         await this.discordNotifier.sendNewsAlert(newsEmbed);
-        return `📰 **News update sent to #newsarticles!**\n\n⏰ Updated: ${new Date().toLocaleTimeString()}`;
+        return `📰 **${articles.length} news articles sent to #newsarticles!**\n\n🔗 Live links to ESPN, FantasyPros, NFL.com, CBS Sports, and more\n⏰ Updated: ${new Date().toLocaleTimeString()}`;
       } else {
-        return `📰 **News Update**\n\n${newsEmbed.fields.map(f => `**${f.name}**\n${f.value}`).join('\n\n')}\n\n⏰ Updated: ${new Date().toLocaleTimeString()}`;
+        // Fallback - show articles in current channel
+        return this.newsArticleFetcher.formatArticlesForDiscord(articles);
       }
 
     } catch (error) {
-      console.error('Failed to get news update:', error.message);
-      return '❌ Failed to get news update. Please try again later.';
+      console.error('Failed to fetch news articles:', error.message);
+      return '❌ Failed to fetch news articles. Please try again later.';
+    }
+  }
+
+  getTimeAgo(date) {
+    const now = new Date();
+    const diffMs = now - new Date(date);
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    
+    if (diffMins < 60) {
+      return `${diffMins}m ago`;
+    } else if (diffHours < 24) {
+      return `${diffHours}h ago`;
+    } else {
+      const diffDays = Math.floor(diffHours / 24);
+      return `${diffDays}d ago`;
     }
   }
 
