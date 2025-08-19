@@ -42,7 +42,7 @@ class InjuryMonitor {
     // Initial load of current injuries
     await this.loadCurrentInjuries();
     
-    // Check every 10 minutes during active hours (8 AM - 11 PM EST)
+    // Check every hour during active hours (8 AM - 11 PM EST)
     setInterval(async () => {
       const now = new Date();
       const hour = now.getHours();
@@ -50,7 +50,7 @@ class InjuryMonitor {
       if (hour >= 8 && hour <= 23) {
         await this.checkInjuryUpdates();
       }
-    }, 10 * 60 * 1000); // 10 minutes
+    }, 60 * 60 * 1000); // 1 hour
     
     // Quick check every 2 minutes during peak news hours (12-7 PM EST)
     setInterval(async () => {
@@ -62,7 +62,7 @@ class InjuryMonitor {
       }
     }, 2 * 60 * 1000); // 2 minutes
     
-    logger.info('✅ Injury monitoring active - checking every 10 minutes');
+    logger.info('✅ Injury monitoring active - checking every hour');
   }
 
   async loadCurrentInjuries() {

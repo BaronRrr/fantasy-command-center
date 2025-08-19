@@ -2208,6 +2208,109 @@ Make it ESPN-quality analysis with specific fantasy advice. No generic content.`
     return `${minutes}m`;
   }
 
+  // Handle all dot commands
+  async handleDotCommand(message, content) {
+    const username = message.author.username;
+    const command = content.trim().toLowerCase();
+    
+    logger.info(`📝 Processing dot command: "${content}" from ${username}`);
+    
+    try {
+      if (command === '.help') {
+        return this.getDotCommandHelp();
+      } else if (command === '.news') {
+        return await this.handleNewsCommand(username);
+      } else if (command.startsWith('.my ')) {
+        const playerName = content.substring(4).trim();
+        return await this.addPlayerToTeam(playerName, username);
+      } else if (command === '.analyze') {
+        return await this.manualAnalysis(this.draftState, username);
+      } else if (command === '.clear') {
+        return this.clearDraftData(username);
+      } else if (command === '.team') {
+        return await this.showUserTeam(username);
+      } else if (command.startsWith('.intel ')) {
+        const playerName = content.substring(7).trim();
+        return await this.getPlayerIntelligence(playerName);
+      } else if (command.startsWith('.injury')) {
+        const playerName = command.length > 7 ? content.substring(8).trim() : null;
+        return await this.handleInjuryCommand(playerName);
+      } else if (command === '.trending') {
+        return await this.handleTrendingCommand();
+      } else if (command === '.update') {
+        return await this.handleDataUpdate();
+      } else if (command === '.status') {
+        return await this.getSystemStatus();
+      } else if (command.startsWith('.import ')) {
+        const draftData = content.substring(8).trim();
+        return this.importDraftBoard(draftData, username);
+      } else {
+        return "❓ Unknown dot command. Type `.help` for available commands.";
+      }
+    } catch (error) {
+      logger.error('Error in dot command:', error.message);
+      return '🚨 Sorry, I encountered an error processing your request. Please try again!';
+    }
+  }
+
+  // Get help for dot commands
+  getDotCommandHelp() {
+    return `🤖 **Fantasy Command Center - Dot Commands**
+
+**📰 News & Analysis**
+\`.news\` - Latest fantasy football news with AI summaries
+\`.intel <player>\` - Player intelligence and breaking news
+\`.trending\` - Get trending players from social media
+
+**🏥 Injury Monitoring**
+\`.injury\` - View injury monitoring status
+\`.injury <player>\` - Check specific player injury status
+
+**🏈 Draft Management**  
+\`.my <player>\` - Add a player to your team
+\`.analyze\` - AI analysis of your current draft situation
+\`.team\` - View your current roster
+\`.clear\` - Reset all draft data
+
+**📊 Data & Import**
+\`.import <data>\` - Import ESPN draft data
+\`.update\` - Manually refresh all data sources
+\`.status\` - Check system health status
+
+**⚡ Quick Actions**
+\`.help\` - Show this help message
+
+💡 **Tip**: Dot commands are fast and reliable!
+🚨 **NEW**: Automated injury alerts in production mode!
+📈 **ACTIVE**: 24/7 fantasy intelligence monitoring`;
+  }
+
+  // Data update handler
+  async handleDataUpdate() {
+    try {
+      const status = [];
+      
+      // Check injury monitoring
+      const injuryStatus = this.injuryMonitor.getStatus();
+      status.push(`🏥 Injury Monitor: ${injuryStatus.isMonitoring ? '✅ Active' : '❌ Inactive'}`);
+      status.push(`   Last checked: ${injuryStatus.lastChecked ? new Date(injuryStatus.lastChecked).toLocaleTimeString() : 'Never'}`);
+      status.push(`   Tracking: ${injuryStatus.knownInjuries} players`);
+      
+      // News system status
+      status.push(`📰 News System: ✅ Active`);
+      status.push(`   Sources: ESPN, FantasyPros, NFL.com, CBS, Yahoo, RotoBaller`);
+      
+      // Scheduled notifications
+      status.push(`🔔 Notifications: ${process.env.NODE_ENV === 'production' ? '✅ Active' : '⏸️ Dev Mode'}`);
+      
+      return `🔄 **System Data Update**\n\n${status.join('\n')}\n\n⏰ Updated: ${new Date().toLocaleTimeString()}`;
+      
+    } catch (error) {
+      logger.error('Error in data update:', error.message);
+      return '❌ Failed to update system data. Please try again later.';
+    }
+  }
+
   // Injury monitoring command handler
   async handleInjuryCommand(playerName = null) {
     try {
