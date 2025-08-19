@@ -2399,7 +2399,7 @@ Focus on current season relevance and actionable fantasy moves. Be specific abou
         analysisSource = 'current fantasy trends & market analysis';
       }
 
-      const analysis = await this.claudeClient.makeRequest([{
+      const analysis = await this.claude.makeRequest([{
         role: 'user',
         content: trendingPrompt
       }], 'You are a fantasy football trending analyst. Be concise and actionable with specific player recommendations.');
