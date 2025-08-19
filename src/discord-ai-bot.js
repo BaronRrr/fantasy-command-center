@@ -2353,16 +2353,31 @@ Make it ESPN-quality analysis with specific fantasy advice. No generic content.`
       
       // Use the new advanced trending analyzer
       if (!this.trendingAnalyzer) {
-        const path = require('path');
-        const TrendingAnalyzer = require(path.join(__dirname, 'services', 'trending-analyzer'));
-        this.trendingAnalyzer = new TrendingAnalyzer(this.playerDatabase);
+        try {
+          logger.info('📦 Loading TrendingAnalyzer module...');
+          const path = require('path');
+          const analyzerPath = path.join(__dirname, 'services', 'trending-analyzer');
+          logger.info(`📂 Analyzer path: ${analyzerPath}`);
+          
+          const TrendingAnalyzer = require(analyzerPath);
+          logger.info('✅ TrendingAnalyzer module loaded successfully');
+          
+          this.trendingAnalyzer = new TrendingAnalyzer(this.playerDatabase);
+          logger.info('✅ TrendingAnalyzer instance created successfully');
+        } catch (loadError) {
+          logger.error('❌ Failed to load TrendingAnalyzer:', loadError.message);
+          logger.error('Load error stack:', loadError.stack);
+          throw loadError;
+        }
       }
       
+      logger.info('🔍 Calling generateTrendingAnalysis...');
       const analysis = await this.trendingAnalyzer.generateTrendingAnalysis();
+      logger.info('📊 Analysis generated, formatting for Discord...');
       return this.trendingAnalyzer.formatForDiscord(analysis);
 
     } catch (error) {
-      logger.error('Error in trending command:', error);
+      logger.error('Error in trending command:', error.message);
       logger.error('Error stack:', error.stack);
       
       // Fallback to manual trending categories
