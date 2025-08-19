@@ -132,20 +132,9 @@ class DiscordAIBot {
         return;
       }
 
-      // Handle draft commands
+      // Handle specific draft connection commands only
       if (question.toLowerCase().includes('draft connect') || question.toLowerCase().includes('connect draft')) {
         await this.handleDraftConnect(message, question);
-        return;
-      }
-
-      // Skip draft handler for injury/general questions even if they contain "draft"
-      const isInjuryQuestion = question.toLowerCase().includes('injur') || 
-                              question.toLowerCase().includes('hurt') ||
-                              question.toLowerCase().includes('health') ||
-                              question.toLowerCase().includes('status');
-
-      if (!isInjuryQuestion && question.toLowerCase().includes('draft') && (question.toLowerCase().includes('who') || question.toLowerCase().includes('next') || question.toLowerCase().includes('recommend'))) {
-        await this.handleDraftRecommendation(message);
         return;
       }
 
@@ -153,6 +142,8 @@ class DiscordAIBot {
         await this.handleDraftRefresh(message);
         return;
       }
+
+      // All other questions go to general AI analysis - no draft requirement
       
       // Process the fantasy football question
       const response = await this.processFantasyQuestion(question, message);
