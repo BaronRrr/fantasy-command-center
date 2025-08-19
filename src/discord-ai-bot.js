@@ -1822,12 +1822,22 @@ Focus on value and team needs. Keep it concise for live draft.`;
           const highPriorityText = highPriority.map(article => {
             const timeAgo = this.getTimeAgo(article.publishedAt);
             const shortTitle = article.title.length > 60 ? article.title.substring(0, 60) + '...' : article.title;
-            return `🔥 **[${shortTitle}](${article.url})**\n*${article.source} • ${timeAgo}*`;
+            
+            let articleText = `🔥 **[${shortTitle}](${article.url})**\n*${article.source} • ${timeAgo}*`;
+            
+            // Add summary if available
+            if (article.summary) {
+              articleText += `\n📝 ${article.summary.substring(0, 150)}...`;
+            } else if (article.description && article.description.length > 20) {
+              articleText += `\n📝 ${article.description.substring(0, 150)}...`;
+            }
+            
+            return articleText;
           }).join('\n\n');
 
           newsEmbed.fields.push({
             name: '🔥 Breaking News & Analysis',
-            value: highPriorityText.substring(0, 800),
+            value: highPriorityText.substring(0, 900),
             inline: false
           });
         }
@@ -1836,12 +1846,22 @@ Focus on value and team needs. Keep it concise for live draft.`;
           const mediumPriorityText = mediumPriority.map(article => {
             const timeAgo = this.getTimeAgo(article.publishedAt);
             const shortTitle = article.title.length > 60 ? article.title.substring(0, 60) + '...' : article.title;
-            return `📄 **[${shortTitle}](${article.url})**\n*${article.source} • ${timeAgo}*`;
+            
+            let articleText = `📄 **[${shortTitle}](${article.url})**\n*${article.source} • ${timeAgo}*`;
+            
+            // Add summary if available
+            if (article.summary) {
+              articleText += `\n📝 ${article.summary.substring(0, 150)}...`;
+            } else if (article.description && article.description.length > 20) {
+              articleText += `\n📝 ${article.description.substring(0, 150)}...`;
+            }
+            
+            return articleText;
           }).join('\n\n');
 
           newsEmbed.fields.push({
             name: '📄 More Fantasy News',
-            value: mediumPriorityText.substring(0, 800),
+            value: mediumPriorityText.substring(0, 900),
             inline: false
           });
         }
