@@ -2351,45 +2351,67 @@ Make it ESPN-quality analysis with specific fantasy advice. No generic content.`
     try {
       logger.info('🔥 Generating trending players analysis...');
       
-      // Fetch recent news for trending analysis
-      const recentNews = await this.newsFetcher.fetchFantasyNews(15); // Get more articles for better analysis
+      // Try to fetch recent news first
+      const recentNews = await this.newsFetcher.fetchFantasyNews(15);
       
-      if (!recentNews || recentNews.length === 0) {
-        return '❌ Unable to fetch recent news for trending analysis. Please try again later.';
-      }
+      let trendingPrompt;
+      let analysisSource;
       
-      // Create trending analysis prompt
-      const newsContent = recentNews.map(article => 
-        `${article.title}\n${article.summary || article.description || ''}`
-      ).join('\n\n');
-      
-      const trendingPrompt = `Analyze these recent fantasy football news articles and identify the top 5 trending players right now. Focus on players getting significant buzz, breakout potential, or major news impacts.
+      if (recentNews && recentNews.length > 3) {
+        // Use news-based analysis if we have sufficient articles
+        const newsContent = recentNews.map(article => 
+          `${article.title}\n${article.summary || article.description || ''}`
+        ).join('\n\n');
+        
+        trendingPrompt = `Analyze these recent fantasy football news articles and identify the top 5 trending players right now:
 
 Recent Fantasy News:
 ${newsContent}
 
-Provide:
-1. Top 5 trending players with brief explanations
-2. Why each player is trending (injury, breakout, news, etc.)
+Provide top 5 trending players with:
+1. Player name and position
+2. Why they're trending 
 3. Fantasy impact rating (1-10)
-4. Action recommendation (add, hold, drop, trade)
+4. Action recommendation
 
-Format as clear bullet points. Keep each player analysis under 100 characters. Be actionable and specific.`;
+Format as clear bullet points.`;
+        analysisSource = `${recentNews.length} recent articles`;
+        
+      } else {
+        // Fallback to general fantasy knowledge during offseason/low news periods
+        trendingPrompt = `It's currently the NFL offseason with limited news. Provide a trending analysis based on current fantasy football consensus for 2024 season preparation:
+
+Identify 5 trending players for fantasy managers to watch:
+1. Rising ADP players getting buzz
+2. Sleeper picks gaining momentum  
+3. Players with changing situations
+4. Rookie/sophomore breakout candidates
+5. Value picks at their position
+
+For each player provide:
+- Name and position/team
+- Why they're trending (ADP rise, situation change, etc.)
+- Fantasy impact rating (1-10) 
+- Draft strategy recommendation
+
+Focus on actionable insights for fantasy drafts and roster building. Be specific and concise.`;
+        analysisSource = 'fantasy consensus & 2024 season outlook';
+      }
 
       const analysis = await this.claudeClient.makeRequest([{
         role: 'user',
         content: trendingPrompt
-      }], 'You are a fantasy football trending analyst. Be concise and actionable.');
+      }], 'You are a fantasy football trending analyst. Be concise and actionable with specific player recommendations.');
 
       const trendingText = typeof analysis === 'string' ? analysis : 
                           analysis.content?.[0]?.text || analysis.text || analysis.message || 
                           'Unable to generate trending analysis.';
 
-      return `🔥 **Trending Players Right Now**
+      return `🔥 **Trending Players Analysis**
 
 ${trendingText}
 
-📊 **Analysis based on:** ${recentNews.length} recent fantasy articles
+📊 **Analysis based on:** ${analysisSource}
 ⏰ **Updated:** ${new Date().toLocaleTimeString()}
 💡 **Tip:** Use \`.intel <player>\` for detailed player analysis`;
 
@@ -2397,13 +2419,14 @@ ${trendingText}
       logger.error('Error in trending command:', error.message);
       return `❌ Failed to generate trending analysis. Please try again later.
 
-🔥 **Quick Trending Categories:**
-• **Injury News:** Check recent injury reports  
-• **Breakout Watch:** Look for increased target share
-• **Trade Buzz:** Monitor player movement rumors
-• **Depth Chart:** New starter opportunities
+🔥 **Offseason Focus Areas:**
+• **Rising ADP:** Players climbing in average draft position
+• **Situation Changes:** New team, coaching staff, or role changes
+• **Rookie Watch:** High-upside first-year players
+• **Sleeper Picks:** Under-the-radar value candidates
+• **Position Battles:** Camp competitions affecting fantasy value
 
-Use \`.news\` for latest headlines!`;
+💡 **Draft Prep:** Focus on ADP trends and roster construction!`;
     }
   }
 
