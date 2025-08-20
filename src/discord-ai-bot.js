@@ -2316,8 +2316,10 @@ Make it ESPN-quality analysis with specific fantasy advice. No generic content.`
 \`.injury\` - View injury monitoring status
 \`.injury <player>\` - Check specific player injury status
 \`.practice check <player> <team>\` - Get current practice report from ESPN/Yahoo
+\`.practice roster <player list>\` - Import entire roster for monitoring
 \`.practice add <player> <team>\` - Add player to practice watch list
 \`.practice remove <player>\` - Remove player from watch list
+\`.practice clear\` - Clear all practice monitoring
 \`.watchlist\` - View current practice watch list
 
 **📊 Weekly Analysis**
@@ -2496,6 +2498,36 @@ Make it ESPN-quality analysis with specific fantasy advice. No generic content.`
           return `🚨 Error checking practice report for **${playerName}**. Please try again later.`;
         }
         
+      } else if (action === 'roster') {
+        // Roster import: .practice roster <roster data>
+        const rosterData = parts.slice(2).join(' ');
+        if (!rosterData) {
+          return `❓ **Roster Import Usage:**
+
+\`.practice roster <player list>\` - Import roster for monitoring
+
+**Supported Formats:**
+• **Simple:** \`Christian McCaffrey SF, Josh Allen BUF, Justin Jefferson MIN\`
+• **ESPN Format:** Copy-paste from ESPN roster page
+• **Line-separated:** Each player on new line
+
+**Examples:**
+\`.practice roster Christian McCaffrey SF, Josh Allen BUF, Justin Jefferson MIN\`
+\`.practice roster Christian McCaffrey (RB - SF), Josh Allen (QB - BUF)\``;
+        }
+        
+        try {
+          const importResult = await this.importRosterToPracticeMonitoring(rosterData);
+          return importResult;
+        } catch (error) {
+          logger.error(`Error importing roster:`, error.message);
+          return `🚨 Error importing roster. Please check the format and try again.`;
+        }
+
+      } else if (action === 'clear') {
+        // Clear all players from practice monitoring
+        return await this.clearAllPracticeMonitoring();
+        
       } else if (action === 'status') {
         const status = this.practiceMonitor.getStatus();
         return `🏈 **Practice Monitoring Status**
@@ -2513,12 +2545,15 @@ ${status.playersWatched.length > 0 ?
         return `❓ **Practice Command Usage:**
 
 \`.practice check <player name> <team>\` - Get current practice report
-\`.practice add <player name> <team>\` - Add player to watch list
-\`.practice remove <player name>\` - Remove player from watch list  
+\`.practice roster <player list>\` - Import entire roster for monitoring
+\`.practice add <player name> <team>\` - Add single player to watch list
+\`.practice remove <player name>\` - Remove player from watch list
+\`.practice clear\` - Remove all players from monitoring
 \`.practice status\` - View monitoring status
 
 **Examples:**
 \`.practice check Christian McCaffrey SF\` - Get current practice status
+\`.practice roster CMC SF, Josh Allen BUF, Jefferson MIN\` - Import roster
 \`.practice add Christian McCaffrey SF\` - Add to watchlist
 \`.practice remove Christian McCaffrey\` - Remove from watchlist`;
       }
@@ -2581,6 +2616,196 @@ ${statusEmoji} **Status:** ${report.status}
     if (lower.includes('doubtful')) return 'High risk - Unlikely to play';
     if (lower.includes('out')) return 'Will not play - Use handcuff/backup';
     return 'Monitor for updates';
+  }
+
+  async importRosterToPracticeMonitoring(rosterData) {
+    try {
+      const players = this.parseRosterData(rosterData);
+      
+      if (players.length === 0) {
+        return `❌ No valid players found in roster data. Please check the format and try again.`;
+      }
+
+      let added = 0;
+      let failed = 0;
+      const results = [];
+
+      for (const player of players) {
+        try {
+          this.practiceMonitor.addPlayerToWatchlist(player.name, player.team);
+          added++;
+          results.push(`✅ ${player.name} (${player.team})`);
+        } catch (error) {
+          failed++;
+          results.push(`❌ ${player.name} (${player.team}) - Error`);
+          logger.debug(`Failed to add ${player.name}:`, error.message);
+        }
+      }
+
+      let response = `🏈 **Roster Import Complete**
+
+**Summary:**
+• **Added:** ${added} players
+• **Failed:** ${failed} players
+• **Total Processed:** ${players.length} players
+
+**Players Added to Practice Monitoring:**
+${results.slice(0, 15).join('\n')}`;
+
+      if (results.length > 15) {
+        response += `\n... and ${results.length - 15} more players`;
+      }
+
+      response += `\n\n🔍 **Monitoring Active:** Practice reports will be checked every 2 hours during practice days (Tue-Fri)
+📱 **Alerts:** Sent to practice channel when status changes`;
+
+      return response;
+
+    } catch (error) {
+      logger.error('Error in roster import:', error.message);
+      throw error;
+    }
+  }
+
+  parseRosterData(rosterData) {
+    const players = [];
+    
+    // Clean up the input
+    const cleanData = rosterData.trim();
+    
+    // Try different parsing strategies
+    const strategies = [
+      this.parseSimpleFormat,
+      this.parseESPNFormat,
+      this.parseLineSeparatedFormat,
+      this.parsePreviousDraftFormat
+    ];
+
+    for (const strategy of strategies) {
+      try {
+        const result = strategy.call(this, cleanData);
+        if (result && result.length > 0) {
+          return result;
+        }
+      } catch (error) {
+        logger.debug('Parsing strategy failed:', error.message);
+      }
+    }
+
+    return [];
+  }
+
+  parseSimpleFormat(data) {
+    // Format: "Christian McCaffrey SF, Josh Allen BUF, Justin Jefferson MIN"
+    const players = [];
+    const entries = data.split(',');
+
+    for (const entry of entries) {
+      const trimmed = entry.trim();
+      const words = trimmed.split(/\s+/);
+      
+      if (words.length >= 2) {
+        const team = words[words.length - 1].toUpperCase();
+        const name = words.slice(0, -1).join(' ');
+        
+        // Validate team (2-3 letter code)
+        if (team.length >= 2 && team.length <= 3) {
+          players.push({ name, team });
+        }
+      }
+    }
+
+    return players;
+  }
+
+  parseESPNFormat(data) {
+    // Format: "Christian McCaffrey (RB - SF), Josh Allen (QB - BUF)"
+    const players = [];
+    const regex = /([^(]+)\s*\([^-]+-\s*([A-Z]{2,3})\)/g;
+    let match;
+
+    while ((match = regex.exec(data)) !== null) {
+      const name = match[1].trim();
+      const team = match[2].trim().toUpperCase();
+      players.push({ name, team });
+    }
+
+    return players;
+  }
+
+  parseLineSeparatedFormat(data) {
+    // Each player on a new line
+    const players = [];
+    const lines = data.split(/[\n\r]+/);
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed) {
+        // Try to extract player and team from each line
+        const result = this.parseSimpleFormat(trimmed);
+        if (result.length > 0) {
+          players.push(...result);
+        }
+      }
+    }
+
+    return players;
+  }
+
+  parsePreviousDraftFormat(data) {
+    // Try to parse from previous draft import format
+    const players = [];
+    
+    // Look for player names with team abbreviations
+    const regex = /([A-Za-z\s'.-]+)\s+([A-Z]{2,3})(?:\s|$)/g;
+    let match;
+
+    while ((match = regex.exec(data)) !== null) {
+      const name = match[1].trim();
+      const team = match[2].trim().toUpperCase();
+      
+      // Skip common false positives
+      if (!name.match(/^(QB|RB|WR|TE|DEF|K)$/i) && name.length > 2) {
+        players.push({ name, team });
+      }
+    }
+
+    return players;
+  }
+
+  async clearAllPracticeMonitoring() {
+    try {
+      const watchlist = this.practiceMonitor.getWatchlist();
+      
+      if (watchlist.length === 0) {
+        return `📋 **Practice Watch List:** Already empty - no players to remove.`;
+      }
+
+      let removed = 0;
+      const playerNames = [];
+
+      for (const player of watchlist) {
+        try {
+          this.practiceMonitor.removePlayerFromWatchlist(player.id);
+          removed++;
+          playerNames.push(player.name);
+        } catch (error) {
+          logger.debug(`Failed to remove ${player.name}:`, error.message);
+        }
+      }
+
+      return `🏈 **Practice Monitoring Cleared**
+
+**Removed ${removed} players from watch list:**
+${playerNames.slice(0, 15).join(', ')}${playerNames.length > 15 ? ` and ${playerNames.length - 15} more` : ''}
+
+✅ **Practice monitoring stopped for all players**
+💡 **Tip:** Use \`.practice roster <players>\` to import a new roster`;
+
+    } catch (error) {
+      logger.error('Error clearing practice monitoring:', error.message);
+      return '🚨 Error clearing practice monitoring. Please try again!';
+    }
   }
 
   async handleWatchlistCommand() {
