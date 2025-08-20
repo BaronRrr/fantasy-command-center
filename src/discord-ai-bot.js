@@ -2315,6 +2315,7 @@ Make it ESPN-quality analysis with specific fantasy advice. No generic content.`
 **🏥 Health Monitoring**
 \`.injury\` - View injury monitoring status
 \`.injury <player>\` - Check specific player injury status
+\`.practice check <player> <team>\` - Get current practice report from ESPN/Yahoo
 \`.practice add <player> <team>\` - Add player to practice watch list
 \`.practice remove <player>\` - Remove player from watch list
 \`.watchlist\` - View current practice watch list
@@ -2461,7 +2462,7 @@ Make it ESPN-quality analysis with specific fantasy advice. No generic content.`
   async handlePracticeCommand(content) {
     try {
       const parts = content.split(' ');
-      const action = parts[1]; // add, remove, status
+      const action = parts[1]; // add, remove, status, check
       
       if (action === 'add' && parts.length >= 4) {
         const playerName = parts.slice(2, -1).join(' '); // Everything except last part
@@ -2481,6 +2482,19 @@ Make it ESPN-quality analysis with specific fantasy advice. No generic content.`
         } else {
           return `❌ Player **${playerName}** not found in watch list. Use \`.watchlist\` to see current players.`;
         }
+
+      } else if (action === 'check' && parts.length >= 4) {
+        // Manual practice report check: .practice check <player name> <team>
+        const playerName = parts.slice(2, -1).join(' '); // Everything except last part
+        const team = parts[parts.length - 1].toUpperCase(); // Last part is team
+        
+        try {
+          const report = await this.practiceMonitor.getPlayerPracticeReport(playerName, team);
+          return this.formatPracticeReport(report);
+        } catch (error) {
+          logger.error(`Error checking practice report for ${playerName}:`, error.message);
+          return `🚨 Error checking practice report for **${playerName}**. Please try again later.`;
+        }
         
       } else if (action === 'status') {
         const status = this.practiceMonitor.getStatus();
@@ -2498,19 +2512,75 @@ ${status.playersWatched.length > 0 ?
       } else {
         return `❓ **Practice Command Usage:**
 
+\`.practice check <player name> <team>\` - Get current practice report
 \`.practice add <player name> <team>\` - Add player to watch list
 \`.practice remove <player name>\` - Remove player from watch list  
 \`.practice status\` - View monitoring status
 
 **Examples:**
-\`.practice add Christian McCaffrey SF\`
-\`.practice remove Christian McCaffrey\``;
+\`.practice check Christian McCaffrey SF\` - Get current practice status
+\`.practice add Christian McCaffrey SF\` - Add to watchlist
+\`.practice remove Christian McCaffrey\` - Remove from watchlist`;
       }
       
     } catch (error) {
       logger.error('Error in practice command:', error.message);
       return '🚨 Error processing practice command. Please try again!';
     }
+  }
+
+  formatPracticeReport(report) {
+    const statusEmoji = this.getPracticeStatusEmoji(report.status);
+    const impactInfo = this.getPracticeImpact(report.status);
+    
+    let response = `🏈 **Practice Report: ${report.player}** (${report.team})
+
+${statusEmoji} **Status:** ${report.status}
+🏥 **Injury:** ${report.injury}
+📊 **Fantasy Impact:** ${impactInfo}
+⏰ **Last Checked:** ${new Date(report.lastChecked).toLocaleTimeString()}`;
+
+    if (report.allSources && report.allSources.length > 1) {
+      response += `\n\n📰 **Multiple Sources Confirm:**`;
+      report.allSources.forEach(source => {
+        response += `\n• ${source.source}: ${source.status}`;
+      });
+    } else if (report.source) {
+      response += `\n📰 **Source:** ${report.source}`;
+    }
+
+    if (report.status === 'No practice report found') {
+      response += `\n\n💡 **Note:** No current practice report found. This could mean:
+• Player is healthy and practicing normally
+• Team hasn't released practice reports yet
+• Player may not be on active roster`;
+    }
+
+    return response;
+  }
+
+  getPracticeStatusEmoji(status) {
+    const lower = status.toLowerCase();
+    if (lower.includes('full')) return '✅';
+    if (lower.includes('limited')) return '⚠️';
+    if (lower.includes('did not') || lower.includes('dnp') || lower.includes('no practice')) return '❌';
+    if (lower.includes('rest')) return '😴';
+    if (lower.includes('questionable')) return '❓';
+    if (lower.includes('doubtful')) return '🚨';
+    if (lower.includes('out')) return '🔴';
+    return '❓';
+  }
+
+  getPracticeImpact(status) {
+    const lower = status.toLowerCase();
+    if (lower.includes('full')) return 'Likely to play - No fantasy concern';
+    if (lower.includes('limited')) return 'Monitor closely - Game-time decision possible';
+    if (lower.includes('did not') || lower.includes('dnp')) return 'Significant concern - Check injury designation';
+    if (lower.includes('rest')) return 'Maintenance day - Likely to play';
+    if (lower.includes('questionable')) return 'Moderate risk - Have backup plan';
+    if (lower.includes('doubtful')) return 'High risk - Unlikely to play';
+    if (lower.includes('out')) return 'Will not play - Use handcuff/backup';
+    return 'Monitor for updates';
   }
 
   async handleWatchlistCommand() {

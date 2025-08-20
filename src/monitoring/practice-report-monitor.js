@@ -146,6 +146,14 @@ class PracticeReportMonitor {
       logger.debug(`ESPN practice report failed for ${team}:`, error.message);
     }
     
+    // Try Yahoo Fantasy Sports
+    try {
+      const yahooReports = await this.scrapeYahooPracticeReport(team);
+      reports.push(...yahooReports);
+    } catch (error) {
+      logger.debug(`Yahoo practice report failed for ${team}:`, error.message);
+    }
+    
     // Fallback to other sources if needed
     if (reports.length === 0) {
       try {
@@ -157,6 +165,66 @@ class PracticeReportMonitor {
     }
     
     return reports;
+  }
+
+  // Manual practice report scanning for any player
+  async getPlayerPracticeReport(playerName, team) {
+    try {
+      logger.info(`🔍 Manual practice check for ${playerName} (${team})...`);
+      
+      const allSources = [];
+      
+      // ESPN practice report (all players)
+      try {
+        const espnReports = await this.scrapeESPNPracticeReportAll(team);
+        const playerReport = espnReports.find(report => 
+          report.player.toLowerCase().includes(playerName.toLowerCase()) ||
+          playerName.toLowerCase().includes(report.player.toLowerCase())
+        );
+        if (playerReport) {
+          allSources.push({ ...playerReport, source: 'ESPN' });
+        }
+      } catch (error) {
+        logger.debug(`ESPN manual check failed for ${playerName}:`, error.message);
+      }
+      
+      // Yahoo Fantasy practice report (all players)
+      try {
+        const yahooReports = await this.scrapeYahooPracticeReportAll(team);
+        const playerReport = yahooReports.find(report => 
+          report.player.toLowerCase().includes(playerName.toLowerCase()) ||
+          playerName.toLowerCase().includes(report.player.toLowerCase())
+        );
+        if (playerReport) {
+          allSources.push({ ...playerReport, source: 'Yahoo Fantasy' });
+        }
+      } catch (error) {
+        logger.debug(`Yahoo manual check failed for ${playerName}:`, error.message);
+      }
+      
+      if (allSources.length === 0) {
+        return {
+          player: playerName,
+          team: team,
+          status: 'No practice report found',
+          injury: 'No information available',
+          sources: [],
+          lastChecked: new Date().toISOString()
+        };
+      }
+      
+      // Return the most recent/reliable source
+      const primaryReport = allSources[0];
+      return {
+        ...primaryReport,
+        allSources: allSources,
+        lastChecked: new Date().toISOString()
+      };
+      
+    } catch (error) {
+      logger.error(`Error getting manual practice report for ${playerName}:`, error.message);
+      throw error;
+    }
   }
 
   async scrapeESPNPracticeReport(team) {
@@ -207,6 +275,184 @@ class PracticeReportMonitor {
     });
     
     return reports;
+  }
+
+  // Manual ESPN scraping for any player (not just watched)
+  async scrapeESPNPracticeReportAll(team) {
+    const teamMapping = {
+      'SF': 'sf',
+      'KC': 'kc', 
+      'BUF': 'buf',
+      'PHI': 'phi',
+      'BAL': 'bal',
+      'HOU': 'hou',
+      'NYJ': 'nyj',
+      'TEN': 'ten',
+      'PIT': 'pit',
+      'TB': 'tb'
+      // Add more team mappings as needed
+    };
+    
+    const espnTeam = teamMapping[team] || team.toLowerCase();
+    const url = `https://www.espn.com/nfl/team/injuries/_/name/${espnTeam}`;
+    
+    const response = await axios.get(url, {
+      timeout: 10000,
+      headers: {
+        'User-Agent': 'Fantasy-Command-Center/1.0.0'
+      }
+    });
+    
+    const $ = cheerio.load(response.data);
+    const reports = [];
+    
+    // Parse ESPN injury/practice table for ALL players
+    $('.Table__TR').each((i, row) => {
+      const $row = $(row);
+      const playerName = $row.find('[data-idx="0"]').text().trim();
+      const status = $row.find('[data-idx="2"]').text().trim();
+      const injury = $row.find('[data-idx="1"]').text().trim();
+      
+      if (playerName) {
+        reports.push({
+          player: playerName,
+          team: team,
+          status: status,
+          injury: injury || 'Unspecified',
+          source: 'ESPN',
+          timestamp: new Date().toISOString()
+        });
+      }
+    });
+    
+    return reports;
+  }
+
+  async scrapeYahooPracticeReport(team) {
+    try {
+      // Yahoo Fantasy Sports injury/practice tracking URLs
+      const teamUrls = {
+        'SF': 'https://sports.yahoo.com/nfl/teams/sf/',
+        'KC': 'https://sports.yahoo.com/nfl/teams/kc/',
+        'BUF': 'https://sports.yahoo.com/nfl/teams/buf/',
+        'PHI': 'https://sports.yahoo.com/nfl/teams/phi/',
+        'BAL': 'https://sports.yahoo.com/nfl/teams/bal/',
+        'HOU': 'https://sports.yahoo.com/nfl/teams/hou/',
+        'NYJ': 'https://sports.yahoo.com/nfl/teams/nyj/',
+        'TEN': 'https://sports.yahoo.com/nfl/teams/ten/',
+        'PIT': 'https://sports.yahoo.com/nfl/teams/pit/',
+        'TB': 'https://sports.yahoo.com/nfl/teams/tb/'
+        // Add more team mappings as needed
+      };
+      
+      const baseUrl = teamUrls[team];
+      if (!baseUrl) {
+        logger.debug(`No Yahoo URL mapping for team ${team}`);
+        return [];
+      }
+      
+      const url = `${baseUrl}injuries/`;
+      
+      const response = await axios.get(url, {
+        timeout: 10000,
+        headers: {
+          'User-Agent': 'Fantasy-Command-Center/1.0.0'
+        }
+      });
+      
+      const $ = cheerio.load(response.data);
+      const reports = [];
+      
+      // Parse Yahoo injury/practice table (adjust selectors as needed)
+      $('.Table tbody tr, .injury-report tr, .players-table tr').each((i, row) => {
+        const $row = $(row);
+        const playerName = $row.find('td:first-child, .name').text().trim();
+        const status = $row.find('td:nth-child(3), .status').text().trim();
+        const injury = $row.find('td:nth-child(2), .injury').text().trim();
+        
+        if (playerName && this.isPlayerWatched(playerName, team)) {
+          reports.push({
+            player: playerName,
+            team: team,
+            status: status || 'Unknown',
+            injury: injury || 'Unspecified',
+            source: 'Yahoo Fantasy',
+            timestamp: new Date().toISOString()
+          });
+        }
+      });
+      
+      logger.debug(`Yahoo scraping found ${reports.length} practice reports for ${team}`);
+      return reports;
+      
+    } catch (error) {
+      logger.debug(`Yahoo practice scraping failed for ${team}:`, error.message);
+      return [];
+    }
+  }
+
+  // Manual Yahoo scraping for any player (not just watched)
+  async scrapeYahooPracticeReportAll(team) {
+    try {
+      // Yahoo Fantasy Sports injury/practice tracking URLs
+      const teamUrls = {
+        'SF': 'https://sports.yahoo.com/nfl/teams/sf/',
+        'KC': 'https://sports.yahoo.com/nfl/teams/kc/',
+        'BUF': 'https://sports.yahoo.com/nfl/teams/buf/',
+        'PHI': 'https://sports.yahoo.com/nfl/teams/phi/',
+        'BAL': 'https://sports.yahoo.com/nfl/teams/bal/',
+        'HOU': 'https://sports.yahoo.com/nfl/teams/hou/',
+        'NYJ': 'https://sports.yahoo.com/nfl/teams/nyj/',
+        'TEN': 'https://sports.yahoo.com/nfl/teams/ten/',
+        'PIT': 'https://sports.yahoo.com/nfl/teams/pit/',
+        'TB': 'https://sports.yahoo.com/nfl/teams/tb/'
+        // Add more team mappings as needed
+      };
+      
+      const baseUrl = teamUrls[team];
+      if (!baseUrl) {
+        logger.debug(`No Yahoo URL mapping for team ${team}`);
+        return [];
+      }
+      
+      const url = `${baseUrl}injuries/`;
+      
+      const response = await axios.get(url, {
+        timeout: 10000,
+        headers: {
+          'User-Agent': 'Fantasy-Command-Center/1.0.0'
+        }
+      });
+      
+      const $ = cheerio.load(response.data);
+      const reports = [];
+      
+      // Parse Yahoo injury/practice table for ALL players
+      $('.Table tbody tr, .injury-report tr, .players-table tr').each((i, row) => {
+        const $row = $(row);
+        const playerName = $row.find('td:first-child, .name').text().trim();
+        const status = $row.find('td:nth-child(3), .status').text().trim();
+        const injury = $row.find('td:nth-child(2), .injury').text().trim();
+        
+        if (playerName) {
+          reports.push({
+            player: playerName,
+            team: team,
+            status: status || 'Unknown',
+            injury: injury || 'Unspecified',
+            source: 'Yahoo Fantasy',
+            timestamp: new Date().toISOString()
+          });
+        }
+      });
+      
+      logger.debug(`Yahoo ALL scraping found ${reports.length} practice reports for ${team}`);
+      return reports;
+      
+    } catch (error) {
+      logger.debug(`Yahoo ALL practice scraping failed for ${team}:`, error.message);
+      return [];
+    }
   }
 
   async scrapeNFLPracticeReport(team) {
