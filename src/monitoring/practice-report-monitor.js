@@ -17,6 +17,7 @@ const logger = winston.createLogger({
 class PracticeReportMonitor {
   constructor(discordNotifier) {
     this.discordNotifier = discordNotifier;
+    this.practiceWebhookUrl = 'https://discord.com/api/webhooks/1407573210593230949/49oispk9IkCr9_0TuE69WpYjaOqvacwqzhCQh3gwTu37OOzXcPzupJa2LpWYwLGC7mNN';
     this.watchlist = new Set(); // Players to monitor
     this.lastReports = new Map(); // Track previous status to detect changes
     this.weeklyTracking = new Map(); // Track entire week's practice participation
@@ -278,6 +279,20 @@ class PracticeReportMonitor {
     return `${year}-W${weekNum}`;
   }
 
+  async sendToPracticeChannel(embed) {
+    const axios = require('axios');
+    try {
+      await axios.post(this.practiceWebhookUrl, {
+        embeds: [embed]
+      });
+      logger.info('📢 Practice alert sent to dedicated channel');
+    } catch (error) {
+      logger.warn('Failed to send to practice channel, using fallback:', error.message);
+      // Fallback to regular Discord notifier
+      await this.discordNotifier.sendEmbed(embed, 'INFO');
+    }
+  }
+
   async sendPracticeAlert(update, previousReport) {
     const statusInfo = this.practiceStatus[update.status] || 
       { severity: 'medium', impact: 'Monitor status' };
@@ -320,7 +335,7 @@ class PracticeReportMonitor {
       });
     }
     
-    await this.discordNotifier.sendEmbed(embed, statusInfo.severity.toUpperCase());
+    await this.sendToPracticeChannel(embed);
     logger.info(`📢 Practice alert sent: ${update.player} - ${update.status}`);
   }
 
@@ -442,7 +457,7 @@ class PracticeReportMonitor {
       inline: false
     });
     
-    await this.discordNotifier.sendEmbed(embed, 'INFO');
+    await this.sendToPracticeChannel(embed);
     logger.info(`📢 Weekly practice summary sent for ${summaryData.length} players`);
   }
 
