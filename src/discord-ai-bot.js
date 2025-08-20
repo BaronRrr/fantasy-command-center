@@ -12,6 +12,7 @@ const InjuryMonitor = require('./services/injury-monitor');
 const PracticeReportMonitor = require('./monitoring/practice-report-monitor');
 const DepthChartMonitor = require('./monitoring/depth-chart-monitor');
 const OfficialInjuryMonitor = require('./monitoring/official-injury-monitor');
+const LiveGameMonitor = require('./monitoring/live-game-monitor');
 const DiscordNotifier = require('./notifications/discord-notifier');
 const { handleSlashCommand } = require('./discord/slash-commands');
 const { registerSlashCommands } = require('./discord/register-commands');
@@ -52,6 +53,7 @@ class DiscordAIBot {
     this.practiceMonitor = new PracticeReportMonitor(this.discordNotifier);
     this.depthChartMonitor = new DepthChartMonitor(this.discordNotifier);
     this.officialInjuryMonitor = new OfficialInjuryMonitor(this.discordNotifier);
+    this.liveGameMonitor = new LiveGameMonitor();
     this.scheduledNotifications = new ScheduledNotifications(this.injuryMonitor);
     
     // Bot configuration
