@@ -10,6 +10,8 @@ const ScheduledNotifications = require('./monitoring/scheduled-notifications');
 const NewsArticleFetcher = require('./news-article-fetcher');
 const InjuryMonitor = require('./services/injury-monitor');
 const PracticeReportMonitor = require('./monitoring/practice-report-monitor');
+const DepthChartMonitor = require('./monitoring/depth-chart-monitor');
+const OfficialInjuryMonitor = require('./monitoring/official-injury-monitor');
 const DiscordNotifier = require('./notifications/discord-notifier');
 const { handleSlashCommand } = require('./discord/slash-commands');
 const { registerSlashCommands } = require('./discord/register-commands');
@@ -48,6 +50,8 @@ class DiscordAIBot {
     this.discordNotifier = new DiscordNotifier();
     this.injuryMonitor = new InjuryMonitor(this.discordNotifier, this.claude);
     this.practiceMonitor = new PracticeReportMonitor(this.discordNotifier);
+    this.depthChartMonitor = new DepthChartMonitor(this.discordNotifier);
+    this.officialInjuryMonitor = new OfficialInjuryMonitor(this.discordNotifier);
     this.scheduledNotifications = new ScheduledNotifications(this.injuryMonitor);
     
     // Bot configuration
@@ -564,6 +568,14 @@ Respond in JSON format for Discord embeds.`;
         // Start practice monitoring
         this.practiceMonitor.startMonitoring();
         logger.info('🏈 Practice monitoring started for player watchlist alerts');
+        
+        // Start depth chart monitoring
+        this.depthChartMonitor.startMonitoring();
+        logger.info('📊 Depth chart monitoring started for starter changes');
+        
+        // Start official injury monitoring
+        this.officialInjuryMonitor.startMonitoring();
+        logger.info('🏥 Official injury report monitoring started');
       }
       
       logger.info('Discord AI Bot started successfully with full intelligence suite');
@@ -2286,6 +2298,8 @@ Make it ESPN-quality analysis with specific fantasy advice. No generic content.`
         return await this.handleWaiverCommand();
       } else if (command === '.rankings') {
         return await this.handleRankingsCommand();
+      } else if (command === '.depth') {
+        return await this.handleDepthCommand();
       } else if (command === '.update') {
         return await this.handleDataUpdate();
       } else if (command === '.status') {
@@ -2329,6 +2343,7 @@ Make it ESPN-quality analysis with specific fantasy advice. No generic content.`
 \`.matchups\` - Game analysis, weather, and key matchups
 \`.waiver\` - Waiver wire targets and pickup suggestions
 \`.rankings\` - Updated weekly position rankings
+\`.depth\` - Depth chart monitoring and starter changes
 
 **🏈 Draft Management**  
 \`.my <player>\` - Add a player to your team
@@ -2999,6 +3014,45 @@ ${trending.split('\n').slice(1, 4).join('\n')}
     const diffTime = Math.abs(now - seasonStart);
     const diffWeeks = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 7));
     return Math.max(1, Math.min(18, diffWeeks));
+  }
+
+  async handleDepthCommand() {
+    try {
+      const depthStatus = this.depthChartMonitor.getStatus();
+      const officialInjuryStatus = this.officialInjuryMonitor.getStatus();
+      
+      return `📊 **Depth Chart & Position Monitoring**
+
+**📈 Depth Chart Monitoring:**
+• **Status:** ${depthStatus.isMonitoring ? '✅ Active' : '❌ Inactive'}
+• **Positions Tracked:** ${depthStatus.trackedPositions}
+• **Charts Monitored:** ${depthStatus.depthChartsTracked}
+• **Sources:** ${depthStatus.sources}
+
+**🏥 Official Injury Monitoring:**
+• **Status:** ${officialInjuryStatus.isMonitoring ? '✅ Active' : '❌ Inactive'}
+• **Reports Tracked:** ${officialInjuryStatus.reportsTracked}
+• **Sources:** ${officialInjuryStatus.sources}
+• **Schedule:** ${officialInjuryStatus.nextCheck}
+
+**🔍 What's Monitored:**
+• **Starter Changes:** Alerts when depth chart starters change
+• **Position Moves:** Players moving up/down depth chart
+• **Official Injury Reports:** Wed/Thu/Fri 4:15 PM EST updates
+• **Fantasy Impact:** Automatic analysis of changes
+
+**⚡ Benefits:**
+• Get alerts before others notice depth changes
+• Track handcuff opportunities automatically  
+• Official injury timing for lineup decisions
+• Multi-source verification for accuracy
+
+⏰ **Last Updated:** ${new Date().toLocaleTimeString()}`;
+      
+    } catch (error) {
+      logger.error('Error in depth command:', error.message);
+      return '🚨 Error getting depth chart status. Please try again!';
+    }
   }
 
   async stop() {

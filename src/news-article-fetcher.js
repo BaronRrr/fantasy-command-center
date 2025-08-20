@@ -22,25 +22,65 @@ class NewsArticleFetcher {
       }
     });
 
-    // Fantasy Football RSS Feeds for Real Articles (better URLs)
+    // Tier 1: Fastest Breaking News Sources (1-5 minutes)
     this.newsFeeds = {
+      nfl_official: {
+        name: 'NFL.com',
+        rss: 'https://www.nfl.com/news/rss.xml',
+        url: 'https://www.nfl.com/news',
+        priority: 'CRITICAL',
+        update_speed: '1-2 minutes',
+        specialty: 'Official NFL news, fastest injury reports'
+      },
+      espn_nfl: {
+        name: 'ESPN NFL',
+        rss: 'https://www.espn.com/espn/rss/nfl/news',
+        url: 'https://www.espn.com/nfl/',
+        priority: 'CRITICAL',
+        update_speed: '2-3 minutes',
+        specialty: 'Breaking news, insider reports, Adam Schefter'
+      },
+      pro_football_talk: {
+        name: 'Pro Football Talk',
+        rss: 'https://profootballtalk.nbcsports.com/feed',
+        url: 'https://profootballtalk.nbcsports.com/',
+        priority: 'HIGH',
+        update_speed: '5-15 minutes',
+        specialty: 'Mike Florio analysis, rumors, legal issues'
+      },
+      cbs_sports_nfl: {
+        name: 'CBS Sports NFL',
+        rss: 'https://www.cbssports.com/rss/headlines/nfl',
+        url: 'https://www.cbssports.com/nfl/',
+        priority: 'HIGH',
+        update_speed: '5-15 minutes',
+        specialty: 'Jonathan Jones insider reports'
+      },
+      pff_feed: {
+        name: 'Pro Football Focus',
+        rss: 'https://www.pff.com/feed',
+        url: 'https://www.pff.com/',
+        priority: 'HIGH',
+        update_speed: '15-30 minutes',
+        specialty: 'Player grades, snap counts, advanced metrics'
+      },
       rotoballer: {
         name: 'RotoBaller',
         rss: 'https://www.rotoballer.com/feed',
         url: 'https://www.rotoballer.com/category/nfl',
-        priority: 'HIGH'
+        priority: 'MEDIUM'
       },
       yahoo_fantasy: {
         name: 'Yahoo Fantasy',
         rss: 'https://sports.yahoo.com/fantasy/rss.xml',
         url: 'https://sports.yahoo.com/fantasy/',
-        priority: 'HIGH'
+        priority: 'MEDIUM'
       },
       sleeper_blog: {
         name: 'Sleeper Blog',
         rss: 'https://blog.sleeper.app/feed/',
         url: 'https://blog.sleeper.app/',
-        priority: 'HIGH'
+        priority: 'MEDIUM'
       },
       fantasypros: {
         name: 'FantasyPros',
