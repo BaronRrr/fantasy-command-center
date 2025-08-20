@@ -27,10 +27,12 @@ class NewsArticleFetcher {
       nfl_official: {
         name: 'NFL.com',
         rss: 'https://www.nfl.com/news/rss.xml',
-        url: 'https://www.nfl.com/news',
+        url: 'https://www.nfl.com/news/all-news',
+        scrapeUrl: 'https://www.nfl.com/news/',
         priority: 'CRITICAL',
         update_speed: '1-2 minutes',
-        specialty: 'Official NFL news, fastest injury reports'
+        specialty: 'Official NFL news, fastest injury reports',
+        preferScraping: true
       },
       espn_nfl: {
         name: 'ESPN NFL',
@@ -146,6 +148,12 @@ class NewsArticleFetcher {
 
   async fetchFeedArticles(feed) {
     try {
+      // Prioritize scraping for NFL.com for current content
+      if (feed.preferScraping || feed.name === 'NFL.com') {
+        logger.info(`📡 Scraping ${feed.name} for current articles...`);
+        return await this.scrapeNFLWebsite(feed);
+      }
+      
       // Skip RSS if not provided
       if (!feed.rss) {
         return await this.scrapeWebsiteArticles(feed);
@@ -263,6 +271,64 @@ class NewsArticleFetcher {
     const regex = new RegExp(`<${fieldName}[^>]*>(.*?)<\/${fieldName}>`, 'is');
     const match = item.match(regex);
     return match ? match[1].trim() : null;
+  }
+
+  // Specialized NFL.com scraper for current articles
+  async scrapeNFLWebsite(feed) {
+    try {
+      logger.info(`🏈 Scraping NFL.com for latest news...`);
+      const response = await this.axiosInstance.get('https://www.nfl.com/news/');
+      const cheerio = require('cheerio');
+      const $ = cheerio.load(response.data);
+      
+      const articles = [];
+      
+      // Look for article containers in NFL.com structure
+      $('.nfl-o-media-object, .nfl-c-article-card, article, .d3-o-media-object').each((i, element) => {
+        if (articles.length >= 5) return false; // Limit to 5 articles
+        
+        const $article = $(element);
+        const titleElement = $article.find('h1, h2, h3, h4, .nfl-c-article-card__headline, .d3-o-media-object__title').first();
+        const linkElement = $article.find('a').first();
+        const dateElement = $article.find('time, .date, .nfl-c-article-card__date, .d3-o-media-object__date').first();
+        
+        const title = titleElement.text().trim();
+        const relativeUrl = linkElement.attr('href');
+        const dateText = dateElement.text().trim() || dateElement.attr('datetime');
+        
+        if (title && title.length > 10 && relativeUrl) {
+          const fullUrl = relativeUrl.startsWith('http') ? relativeUrl : `https://www.nfl.com${relativeUrl}`;
+          
+          // Parse date
+          let publishedAt = new Date();
+          if (dateText) {
+            try {
+              publishedAt = new Date(dateText);
+              if (isNaN(publishedAt.getTime())) {
+                publishedAt = new Date(); // Fallback to now
+              }
+            } catch (e) {
+              publishedAt = new Date();
+            }
+          }
+          
+          articles.push({
+            title: title,
+            url: fullUrl,
+            publishedAt: publishedAt.toISOString(),
+            source: 'NFL.com',
+            description: $article.find('.summary, .excerpt, .description').first().text().trim().substring(0, 200) || title
+          });
+        }
+      });
+      
+      logger.info(`✅ NFL.com: Found ${articles.length} current articles`);
+      return articles;
+      
+    } catch (error) {
+      logger.warn(`Failed to scrape NFL.com: ${error.message}`);
+      return [];
+    }
   }
 
   async scrapeWebsiteArticles(feed) {
