@@ -28,8 +28,34 @@ class SimpleTrendingAnalyzer {
         return cached.data;
       }
 
-      logger.info('🔍 Fetching trending players from Reddit with new SimpleTrendingAnalyzer...');
+      logger.info('🔍 Gathering trending players from multiple sources...');
       
+      // Get data from multiple sources
+      const [redditTrending, newsCrossRef] = await Promise.all([
+        this.getRedditTrending(),
+        this.getNewsCrossReference()
+      ]);
+      
+      // Combine and correlate the data
+      const combined = this.correlateTrendingData(redditTrending, newsCrossRef);
+      
+      // Cache the result
+      this.cache.set('trending', {
+        data: combined,
+        timestamp: Date.now()
+      });
+
+      return combined;
+
+    } catch (error) {
+      logger.error('Failed to fetch trending players:', error.message);
+      return this.getFallbackTrending();
+    }
+  }
+
+  // Get trending players from Reddit
+  async getRedditTrending() {
+    try {
       const url = 'https://www.reddit.com/r/fantasyfootball/hot.json?limit=50';
       const response = await axios.get(url, {
         headers: {
@@ -38,20 +64,122 @@ class SimpleTrendingAnalyzer {
         timeout: 15000
       });
 
-      const trending = this.parseRedditPosts(response.data);
-      
-      // Cache the result
-      this.cache.set('trending', {
-        data: trending,
-        timestamp: Date.now()
+      return this.parseRedditPosts(response.data);
+    } catch (error) {
+      logger.warn('Failed to get Reddit trending:', error.message);
+      return [];
+    }
+  }
+
+  // Cross-reference with news sources for additional context
+  async getNewsCrossReference() {
+    try {
+      // Get current NFL news to cross-reference
+      const newsResponse = await axios.get('https://www.nfl.com/news/', {
+        headers: {
+          'User-Agent': 'FantasyCommandCenter/1.0.0'
+        },
+        timeout: 10000
       });
 
-      return trending;
+      // Extract player mentions from headlines
+      const cheerio = require('cheerio');
+      const $ = cheerio.load(newsResponse.data);
+      const newsPlayers = [];
 
+      $('h1, h2, h3, h4, .headline, .title').each((i, element) => {
+        const headline = $(element).text().trim();
+        const players = this.extractPlayerNamesFromText(headline);
+        
+        players.forEach(player => {
+          newsPlayers.push({
+            name: player,
+            source: 'NFL.com',
+            context: headline,
+            url: 'https://www.nfl.com/news/',
+            type: 'news_mention'
+          });
+        });
+      });
+
+      return newsPlayers;
     } catch (error) {
-      logger.error('Failed to fetch trending players:', error.message);
-      return this.getFallbackTrending();
+      logger.warn('Failed to get news cross-reference:', error.message);
+      return [];
     }
+  }
+
+  // Correlate trending data from multiple sources
+  correlateTrendingData(redditTrending, newsCrossRef) {
+    const combined = [...redditTrending];
+    
+    // Enhance Reddit trending with news context
+    combined.forEach(player => {
+      const newsMatches = newsCrossRef.filter(news => 
+        news.name.toLowerCase().includes(player.name.toLowerCase()) ||
+        player.name.toLowerCase().includes(news.name.toLowerCase())
+      );
+      
+      if (newsMatches.length > 0) {
+        player.sources = player.sources || ['Reddit'];
+        player.sources.push('NFL.com');
+        player.newsContext = newsMatches[0].context;
+        player.newsUrl = newsMatches[0].url;
+        player.crossReferenced = true;
+      }
+    });
+
+    // Add news-only trending players not found on Reddit
+    newsCrossRef.forEach(newsPlayer => {
+      const existsInReddit = combined.some(player => 
+        player.name.toLowerCase().includes(newsPlayer.name.toLowerCase()) ||
+        newsPlayer.name.toLowerCase().includes(player.name.toLowerCase())
+      );
+      
+      if (!existsInReddit && newsPlayer.name.length > 5) {
+        combined.push({
+          name: newsPlayer.name,
+          reason: newsPlayer.context,
+          sources: ['NFL.com'],
+          newsContext: newsPlayer.context,
+          newsUrl: newsPlayer.url,
+          mentions: 1,
+          newsOnly: true
+        });
+      }
+    });
+
+    // Sort by cross-referenced players first, then by mentions
+    return combined.sort((a, b) => {
+      if (a.crossReferenced && !b.crossReferenced) return -1;
+      if (!a.crossReferenced && b.crossReferenced) return 1;
+      return (b.mentions || 0) - (a.mentions || 0);
+    }).slice(0, 10);
+  }
+
+  // Extract player names from text using common patterns
+  extractPlayerNamesFromText(text) {
+    const players = [];
+    
+    // Look for patterns like "FirstName LastName" 
+    const namePattern = /\b([A-Z][a-z]+ [A-Z][a-z]+)\b/g;
+    let match;
+    
+    while ((match = namePattern.exec(text)) !== null) {
+      const name = match[1];
+      
+      // Filter out common false positives
+      if (!name.includes('NFL') && 
+          !name.includes('New York') && 
+          !name.includes('Green Bay') &&
+          !name.includes('Las Vegas') &&
+          !name.includes('Pro Bowl') &&
+          name.length > 6) {
+        players.push(name);
+      }
+    }
+    
+    return players;
   }
 
   parseRedditPosts(redditData) {
