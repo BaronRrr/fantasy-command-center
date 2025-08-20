@@ -9,6 +9,7 @@ const AdvancedDataMonitor = require('./monitoring/advanced-data-monitor');
 const ScheduledNotifications = require('./monitoring/scheduled-notifications');
 const NewsArticleFetcher = require('./news-article-fetcher');
 const InjuryMonitor = require('./services/injury-monitor');
+const PracticeReportMonitor = require('./monitoring/practice-report-monitor');
 const DiscordNotifier = require('./notifications/discord-notifier');
 const { handleSlashCommand } = require('./discord/slash-commands');
 const { registerSlashCommands } = require('./discord/register-commands');
@@ -46,6 +47,7 @@ class DiscordAIBot {
     this.newsArticleFetcher = new NewsArticleFetcher();
     this.discordNotifier = new DiscordNotifier();
     this.injuryMonitor = new InjuryMonitor(this.discordNotifier, this.claude);
+    this.practiceMonitor = new PracticeReportMonitor(this.discordNotifier);
     this.scheduledNotifications = new ScheduledNotifications(this.injuryMonitor);
     
     // Bot configuration
@@ -558,6 +560,10 @@ Respond in JSON format for Discord embeds.`;
         // Start injury monitoring
         this.injuryMonitor.startMonitoring();
         logger.info('🏥 Injury monitoring started for automated alerts');
+        
+        // Start practice monitoring
+        this.practiceMonitor.startMonitoring();
+        logger.info('🏈 Practice monitoring started for player watchlist alerts');
       }
       
       logger.info('Discord AI Bot started successfully with full intelligence suite');
@@ -2268,6 +2274,10 @@ Make it ESPN-quality analysis with specific fantasy advice. No generic content.`
         return await this.handleInjuryCommand(playerName);
       } else if (command === '.trending') {
         return await this.handleTrendingCommand();
+      } else if (command.startsWith('.practice')) {
+        return await this.handlePracticeCommand(content);
+      } else if (command === '.watchlist') {
+        return await this.handleWatchlistCommand();
       } else if (command === '.update') {
         return await this.handleDataUpdate();
       } else if (command === '.status') {
@@ -2293,9 +2303,12 @@ Make it ESPN-quality analysis with specific fantasy advice. No generic content.`
 \`.intel <player>\` - Player intelligence and breaking news
 \`.trending\` - Get trending players from social media
 
-**🏥 Injury Monitoring**
+**🏥 Health Monitoring**
 \`.injury\` - View injury monitoring status
 \`.injury <player>\` - Check specific player injury status
+\`.practice add <player> <team>\` - Add player to practice watch list
+\`.practice remove <player>\` - Remove player from watch list
+\`.watchlist\` - View current practice watch list
 
 **🏈 Draft Management**  
 \`.my <player>\` - Add a player to your team
@@ -2428,6 +2441,95 @@ Make it ESPN-quality analysis with specific fantasy advice. No generic content.`
 💡 **Tip:** Use \`.news\` for latest headlines and \`.injury\` for health updates!
 
 ⏰ Updated: ${new Date().toLocaleTimeString()}`;
+    }
+  }
+
+  async handlePracticeCommand(content) {
+    try {
+      const parts = content.split(' ');
+      const action = parts[1]; // add, remove, status
+      
+      if (action === 'add' && parts.length >= 4) {
+        const playerName = parts.slice(2, -1).join(' '); // Everything except last part
+        const team = parts[parts.length - 1].toUpperCase(); // Last part is team
+        
+        const playerId = this.practiceMonitor.addPlayerToWatchlist(playerName, team);
+        return `✅ Added **${playerName}** (${team}) to practice watch list.\n\n🔍 I'll monitor their practice participation and send alerts when their status changes during practice days (Tue-Fri).`;
+        
+      } else if (action === 'remove' && parts.length >= 3) {
+        const playerName = parts.slice(2).join(' ');
+        const watchlist = this.practiceMonitor.getWatchlist();
+        const player = watchlist.find(p => p.name.toLowerCase() === playerName.toLowerCase());
+        
+        if (player) {
+          this.practiceMonitor.removePlayerFromWatchlist(player.id);
+          return `✅ Removed **${player.name}** from practice watch list.`;
+        } else {
+          return `❌ Player **${playerName}** not found in watch list. Use \`.watchlist\` to see current players.`;
+        }
+        
+      } else if (action === 'status') {
+        const status = this.practiceMonitor.getStatus();
+        return `🏈 **Practice Monitoring Status**
+        
+**Monitoring:** ${status.isMonitoring ? '✅ Active' : '❌ Inactive'}
+**Players Watched:** ${status.watchlistSize}
+**Reports Tracked:** ${status.lastReportsCount}
+
+${status.playersWatched.length > 0 ? 
+  `**Current Watch List:**\n${status.playersWatched.map(p => `• ${p}`).join('\n')}` : 
+  '*No players currently being monitored*'
+}`;
+        
+      } else {
+        return `❓ **Practice Command Usage:**
+
+\`.practice add <player name> <team>\` - Add player to watch list
+\`.practice remove <player name>\` - Remove player from watch list  
+\`.practice status\` - View monitoring status
+
+**Examples:**
+\`.practice add Christian McCaffrey SF\`
+\`.practice remove Christian McCaffrey\``;
+      }
+      
+    } catch (error) {
+      logger.error('Error in practice command:', error.message);
+      return '🚨 Error processing practice command. Please try again!';
+    }
+  }
+
+  async handleWatchlistCommand() {
+    try {
+      const watchlist = this.practiceMonitor.getWatchlist();
+      
+      if (watchlist.length === 0) {
+        return `📋 **Practice Watch List: Empty**
+
+No players currently being monitored for practice participation.
+
+**Add players with:** \`.practice add <player> <team>\`
+**Example:** \`.practice add Christian McCaffrey SF\``;
+      }
+      
+      const playerList = watchlist
+        .map(player => `• **${player.name}** (${player.team})`)
+        .join('\n');
+        
+      return `📋 **Practice Watch List** (${watchlist.length} players)
+
+${playerList}
+
+🔍 **Monitoring:** Practice participation during practice days (Tue-Fri)
+📱 **Alerts:** Sent when practice status changes (Full/Limited/Did Not Practice)
+
+**Manage List:**
+\`.practice add <player> <team>\` - Add player
+\`.practice remove <player>\` - Remove player`;
+      
+    } catch (error) {
+      logger.error('Error in watchlist command:', error.message);
+      return '🚨 Error retrieving watch list. Please try again!';
     }
   }
 

@@ -20,7 +20,7 @@ class ESPNPublicAPI {
     this.enhancer = new FantasyKnowledgeEnhancer();
     
     this.axiosInstance = axios.create({
-      timeout: 15000,
+      timeout: 10000, // Reduced to 10 seconds for faster failover
       headers: {
         'User-Agent': 'Fantasy-Command-Center/1.0.0'
       }
@@ -36,13 +36,94 @@ class ESPNPublicAPI {
     this.teamCache = new Map();
     this.newsCache = new Map();
     this.cacheExpiry = 5 * 60 * 1000; // 5 minutes
+
+    // Circuit breaker state
+    this.circuitBreaker = {
+      failures: 0,
+      lastFailureTime: null,
+      maxFailures: 3,
+      resetTimeout: 30000, // 30 seconds
+      isOpen: false
+    };
+
+    // Rate limiting
+    this.requestQueue = [];
+    this.lastRequestTime = 0;
+    this.minRequestInterval = 100; // 100ms between requests
+  }
+
+  async makeRequest(url, cacheKey = null) {
+    // Check circuit breaker
+    if (this.isCircuitOpen()) {
+      throw new Error('ESPN API circuit breaker is open');
+    }
+
+    // Rate limiting
+    await this.waitForRateLimit();
+
+    try {
+      const response = await this.axiosInstance.get(url);
+      this.recordSuccess();
+      return response;
+    } catch (error) {
+      this.recordFailure();
+      throw error;
+    }
+  }
+
+  isCircuitOpen() {
+    if (!this.circuitBreaker.isOpen) return false;
+    
+    const now = Date.now();
+    if (now - this.circuitBreaker.lastFailureTime > this.circuitBreaker.resetTimeout) {
+      this.resetCircuitBreaker();
+      return false;
+    }
+    
+    return true;
+  }
+
+  recordFailure() {
+    this.circuitBreaker.failures++;
+    this.circuitBreaker.lastFailureTime = Date.now();
+    
+    if (this.circuitBreaker.failures >= this.circuitBreaker.maxFailures) {
+      this.circuitBreaker.isOpen = true;
+      logger.warn(`ESPN API circuit breaker opened after ${this.circuitBreaker.failures} failures`);
+    }
+  }
+
+  recordSuccess() {
+    if (this.circuitBreaker.failures > 0) {
+      this.circuitBreaker.failures = Math.max(0, this.circuitBreaker.failures - 1);
+      logger.debug('ESPN API success - reducing failure count');
+    }
+  }
+
+  resetCircuitBreaker() {
+    this.circuitBreaker.failures = 0;
+    this.circuitBreaker.isOpen = false;
+    this.circuitBreaker.lastFailureTime = null;
+    logger.info('ESPN API circuit breaker reset');
+  }
+
+  async waitForRateLimit() {
+    const now = Date.now();
+    const timeSinceLastRequest = now - this.lastRequestTime;
+    
+    if (timeSinceLastRequest < this.minRequestInterval) {
+      const waitTime = this.minRequestInterval - timeSinceLastRequest;
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+    
+    this.lastRequestTime = Date.now();
   }
 
   async getScoreboard() {
     try {
       logger.info('Fetching NFL scoreboard...');
       const url = `${this.baseURL}${this.endpoints.scoreboard}`;
-      const response = await this.axiosInstance.get(url);
+      const response = await this.makeRequest(url);
       
       const games = response.data.events.map(game => ({
         id: game.id,
@@ -85,9 +166,7 @@ class ESPNPublicAPI {
 
       logger.info('Fetching NFL news...');
       const url = `${this.baseURL}${this.endpoints.news}`;
-      const response = await this.axiosInstance.get(url, {
-        params: { limit }
-      });
+      const response = await this.makeRequest(url + `?limit=${limit}`);
       
       const articles = response.data.articles.map(article => ({
         id: article.id,
@@ -128,7 +207,7 @@ class ESPNPublicAPI {
 
       logger.info('Fetching all NFL teams...');
       const url = `${this.baseURL}${this.endpoints.teams}`;
-      const response = await this.axiosInstance.get(url);
+      const response = await this.makeRequest(url);
       
       const teams = response.data.sports[0].leagues[0].teams.map(teamData => ({
         id: teamData.team.id,
@@ -163,7 +242,7 @@ class ESPNPublicAPI {
 
       logger.info(`Fetching team data for ${teamId}...`);
       const url = `${this.baseURL}${this.endpoints.team.replace(':team', teamId)}`;
-      const response = await this.axiosInstance.get(url);
+      const response = await this.makeRequest(url);
       
       const team = response.data.team;
       const teamData = {
@@ -302,15 +381,45 @@ class ESPNPublicAPI {
     });
   }
 
+  getHealthStatus() {
+    return {
+      circuitBreakerOpen: this.circuitBreaker.isOpen,
+      failures: this.circuitBreaker.failures,
+      maxFailures: this.circuitBreaker.maxFailures,
+      lastFailureTime: this.circuitBreaker.lastFailureTime,
+      resetTimeout: this.circuitBreaker.resetTimeout,
+      cacheSize: {
+        teams: this.teamCache.size,
+        news: this.newsCache.size
+      },
+      rateLimit: {
+        minInterval: this.minRequestInterval,
+        lastRequestTime: this.lastRequestTime
+      }
+    };
+  }
+
+  resetHealth() {
+    this.resetCircuitBreaker();
+    this.teamCache.clear();
+    this.newsCache.clear();
+    logger.info('ESPN API health status and cache reset');
+  }
+
   async healthCheck() {
     try {
       await this.getNews(1);
-      return { status: 'connected', timestamp: new Date().toISOString() };
+      return { 
+        status: 'connected', 
+        timestamp: new Date().toISOString(),
+        ...this.getHealthStatus()
+      };
     } catch (error) {
       return { 
         status: 'error', 
         error: error.message, 
-        timestamp: new Date().toISOString() 
+        timestamp: new Date().toISOString(),
+        ...this.getHealthStatus()
       };
     }
   }
