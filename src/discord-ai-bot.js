@@ -2315,12 +2315,15 @@ Make it ESPN-quality analysis with specific fantasy advice. No generic content.`
 **🏥 Health Monitoring**
 \`.injury\` - View injury monitoring status
 \`.injury <player>\` - Check specific player injury status
+
+**🏈 Practice Monitoring (NEW!)**
 \`.practice check <player> <team>\` - Get current practice report from ESPN/Yahoo
-\`.practice roster <player list>\` - Import entire roster for monitoring
-\`.practice add <player> <team>\` - Add player to practice watch list
+\`.practice roster <player list>\` - Import entire roster for automatic monitoring
+\`.practice add <player> <team>\` - Add single player to practice watch list
 \`.practice remove <player>\` - Remove player from watch list
 \`.practice clear\` - Clear all practice monitoring
-\`.watchlist\` - View current practice watch list
+\`.practice status\` - View practice monitoring status
+\`.watchlist\` - View all players being monitored
 
 **📊 Weekly Analysis**
 \`.matchups\` - Game analysis, weather, and key matchups
@@ -2342,7 +2345,8 @@ Make it ESPN-quality analysis with specific fantasy advice. No generic content.`
 \`.help\` - Show this help message
 
 💡 **Tip**: Dot commands are fast and reliable!
-🚨 **NEW**: Automated injury alerts in production mode!
+🚨 **NEW**: Practice monitoring with ESPN/Yahoo scraping!
+🔥 **NEW**: Roster import for automatic practice alerts!
 📈 **ACTIVE**: 24/7 fantasy intelligence monitoring`;
   }
 
