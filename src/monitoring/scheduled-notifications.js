@@ -3,7 +3,7 @@ const winston = require('winston');
 const AdvancedDataMonitor = require('./advanced-data-monitor');
 const TwitterMonitor = require('./twitter-monitor');
 const DiscordNotifier = require('../notifications/discord-notifier');
-const NewsArticleFetcher = require('../data-update/news-article-fetcher');
+const NewsArticleFetcher = require('../news-article-fetcher');
 const SimpleTrendingAnalyzer = require('../services/simple-trending');
 
 const logger = winston.createLogger({
