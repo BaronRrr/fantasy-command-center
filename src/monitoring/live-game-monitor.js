@@ -25,10 +25,11 @@ class LiveGameMonitor {
     this.gameAlerts = new Map();
     this.liveWebhookUrl = null;
     
-    // Thresholds for alerts
-    this.SNAP_COUNT_THRESHOLD = 5; // Alert if snap count changes by 5+
-    this.TARGET_THRESHOLD = 2; // Alert for 2+ targets in short time
+    // Thresholds for alerts (reduced for preseason testing)
+    this.SNAP_COUNT_THRESHOLD = 10; // Alert if snap count changes by 10+ (reduced frequency)
+    this.TARGET_THRESHOLD = 3; // Alert for 3+ targets (reduced frequency)
     this.RED_ZONE_THRESHOLD = 1; // Alert on any red zone usage
+    this.PRESEASON_MODE = true; // Light monitoring for preseason
     
     // Game status tracking
     this.GAME_STATES = {
@@ -305,36 +306,46 @@ class LiveGameMonitor {
     );
   }
 
-  // Send game start alert
+  // Send game start alert (simplified for preseason)
   async sendGameStartAlert(gameInfo) {
+    const isPreseason = this.PRESEASON_MODE;
+    
     const embed = {
-      title: '🏈 LIVE GAME STARTED',
-      description: `${gameInfo.awayTeam} @ ${gameInfo.homeTeam}`,
-      color: 0x00FF00,
+      title: isPreseason ? '🏈 PRESEASON GAME STARTED' : '🏈 LIVE GAME STARTED',
+      description: `**${gameInfo.awayTeam} @ ${gameInfo.homeTeam}**`,
+      color: isPreseason ? 0x88CC88 : 0x00FF00,
       fields: [
         {
-          name: '📊 Score',
+          name: '📊 Current Score',
           value: `${gameInfo.awayTeam}: ${gameInfo.awayScore} | ${gameInfo.homeTeam}: ${gameInfo.homeScore}`,
           inline: true
         },
         {
-          name: '⏰ Game Clock',
+          name: '⏰ Game Status',
           value: `Q${gameInfo.quarter} - ${gameInfo.clock}`,
           inline: true
-        },
-        {
-          name: '🎯 Real-Time Tracking',
-          value: `• Live scores and quarter updates\n• Player performance stats\n• Snap counts and targets\n• Red zone opportunities`,
-          inline: false
         }
       ],
       timestamp: new Date().toISOString(),
       footer: {
-        text: 'Live Game Monitor • Preseason/Regular Season Tracking'
+        text: isPreseason ? 'Live Game Monitor • Preseason Test Run' : 'Live Game Monitor • Live Tracking'
       }
     };
 
-    await this.sendAlert(embed, '🏈 **LIVE GAME STARTED** - Real-time monitoring active');
+    // Add monitoring info only if not preseason mode
+    if (!isPreseason) {
+      embed.fields.push({
+        name: '🎯 Monitoring',
+        value: `• Live scores and quarter updates\n• Player performance tracking\n• Fantasy alerts active`,
+        inline: false
+      });
+    }
+
+    const alertText = isPreseason ? 
+      '🏈 **PRESEASON GAME PING** - Basic test monitoring' : 
+      '🏈 **LIVE GAME STARTED** - Full monitoring active';
+
+    await this.sendAlert(embed, alertText);
   }
 
   // Send periodic game update (every quarter/score change)
