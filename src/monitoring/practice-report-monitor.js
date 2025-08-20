@@ -17,7 +17,7 @@ const logger = winston.createLogger({
 class PracticeReportMonitor {
   constructor(discordNotifier) {
     this.discordNotifier = discordNotifier;
-    this.practiceWebhookUrl = 'https://discord.com/api/webhooks/1407573210593230949/49oispk9IkCr9_0TuE69WpYjaOqvacwqzhCQh3gwTu37OOzXcPzupJa2LpWYwLGC7mNN';
+    this.practiceWebhookUrl = process.env.PRACTICE_WEBHOOK_URL || 'https://discord.com/api/webhooks/1407573210593230949/49oispk9IkCr9_0TuE69WpYjaOqvacwqzhCQh3gwTu37OOzXcPzupJa2LpWYwLGC7mNN';
     this.watchlist = new Set(); // Players to monitor
     this.lastReports = new Map(); // Track previous status to detect changes
     this.weeklyTracking = new Map(); // Track entire week's practice participation
