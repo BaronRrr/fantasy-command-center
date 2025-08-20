@@ -43,10 +43,10 @@ class DiscordAIBot {
     this.draftAnalyzer = new LiveDraftAnalyzer();
     this.twitterMonitor = new TwitterMonitor();
     this.dataMonitor = new AdvancedDataMonitor();
-    this.scheduledNotifications = new ScheduledNotifications();
     this.newsArticleFetcher = new NewsArticleFetcher();
     this.discordNotifier = new DiscordNotifier();
     this.injuryMonitor = new InjuryMonitor(this.discordNotifier, this.claude);
+    this.scheduledNotifications = new ScheduledNotifications(this.injuryMonitor);
     
     // Bot configuration
     this.botToken = process.env.DISCORD_BOT_TOKEN;
@@ -315,10 +315,16 @@ CRITICAL: Only include "articleLinks" field if you have real, working URLs. Do n
 - ESPN 2025 player projections and rankings
 - ESPN fantasy player profiles and analysis  
 - ESPN injury reports and player news
-- ESPN draft rankings and ADP data
+- ESPN draft rankings and CURRENT ADP data (CRITICAL: Always reference real current ESPN ADP, not generic ranges)
 - ESPN start/sit recommendations
 - ESPN trade value charts
 - ESPN waiver wire advice
+
+⚠️ ADP ACCURACY REQUIREMENTS:
+- NEVER state generic ADP ranges like "late round 2" without ESPN verification
+- Always reference specific ESPN ADP numbers when available
+- If uncertain about ADP, state "Check current ESPN ADP for accurate draft position"
+- Top players like Saquon Barkley, McCaffrey, Jefferson go in TOP 5 picks, not late rounds
 
 SECONDARY SOURCES (complement ESPN data):
 - FantasyPros consensus rankings and expert analysis
@@ -326,6 +332,8 @@ SECONDARY SOURCES (complement ESPN data):
 - FantasyPros ADP and draft data
 - DraftSharks rookie ADP and sleeper analysis
 - DraftSharks best ball ADP and strategy data
+- Yahoo Fantasy Sports articles and expert analysis (updated every few hours)
+- Yahoo Fantasy Sports player insights and trending data
 - NFL.com official data
 - Team depth charts
 - Weather reports for games
@@ -342,10 +350,12 @@ DRAFT PHILOSOPHY (MULTI-SOURCE ANALYSIS):
 - CROSS-REFERENCE: FantasyPros consensus rankings for validation
 - ROOKIES: DraftSharks rookie ADP and sleeper analysis for new players
 - BEST BALL: DraftSharks best ball data for tournament strategy
+- TRENDING: Yahoo Fantasy Sports articles for player momentum and insights
 - COMBINE all sources for comprehensive pick recommendations
-- Compare ADP across platforms (ESPN vs Underdog vs Sleeper)
+- Compare ADP across platforms (ESPN vs Underdog vs Sleeper vs Yahoo)
 - Identify value picks where rankings diverge between sources
 - Use format-specific data (PPR vs Half-PPR vs Standard)
+- Leverage Yahoo's frequent article updates for real-time insights
 
 Always be:
 - ESPN-first in all analysis and recommendations

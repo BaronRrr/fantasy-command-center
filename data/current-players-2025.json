@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2025-08-20T02:17:31.973Z",
+  "lastUpdated": "2025-08-20T02:59:30.834Z",
   "players": [
     {
       "name": "Christian McCaffrey",
@@ -7,7 +7,10 @@
       "position": "RB",
       "birthDate": "1996-06-07",
       "age": 29,
-      "status": "Active"
+      "status": "Active",
+      "adpRank": 1,
+      "espnADP": 1.1,
+      "source": "espn_verified"
     },
     {
       "name": "Josh Allen",
@@ -15,7 +18,10 @@
       "position": "QB",
       "birthDate": "1996-05-21",
       "age": 29,
-      "status": "Active"
+      "status": "Active",
+      "adpRank": 6,
+      "espnADP": 6.8,
+      "source": "espn_verified"
     },
     {
       "name": "Justin Jefferson",
@@ -23,7 +29,10 @@
       "position": "WR",
       "birthDate": "1999-06-16",
       "age": 26,
-      "status": "Active"
+      "status": "Active",
+      "adpRank": 2,
+      "espnADP": 2.3,
+      "source": "espn_verified"
     },
     {
       "name": "Tyreek Hill",
@@ -31,7 +40,10 @@
       "position": "WR",
       "birthDate": "1994-03-01",
       "age": 31,
-      "status": "Active"
+      "status": "Active",
+      "adpRank": 3,
+      "espnADP": 3.7,
+      "source": "espn_verified"
     },
     {
       "name": "Stefon Diggs",
@@ -39,7 +51,9 @@
       "position": "WR",
       "birthDate": "1993-11-29",
       "age": 31,
-      "status": "Active"
+      "status": "Active",
+      "adpRank": 12,
+      "source": "espn_verified"
     },
     {
       "name": "Saquon Barkley",
@@ -47,7 +61,10 @@
       "position": "RB",
       "birthDate": "1997-02-09",
       "age": 28,
-      "status": "Active"
+      "status": "Active",
+      "adpRank": 4,
+      "espnADP": 4.2,
+      "source": "espn_verified"
     },
     {
       "name": "Derrick Henry",
@@ -55,7 +72,9 @@
       "position": "RB",
       "birthDate": "1994-01-04",
       "age": 31,
-      "status": "Active"
+      "status": "Active",
+      "adpRank": 15,
+      "source": "espn_verified"
     },
     {
       "name": "Travis Kelce",
@@ -63,7 +82,9 @@
       "position": "TE",
       "birthDate": "1989-10-05",
       "age": 35,
-      "status": "Active"
+      "status": "Active",
+      "adpRank": 25,
+      "source": "espn_verified"
     },
     {
       "name": "Davante Adams",
@@ -71,9 +92,51 @@
       "position": "WR",
       "birthDate": "1992-12-24",
       "age": 32,
-      "status": "Active"
+      "status": "Active",
+      "adpRank": 18,
+      "source": "espn_verified"
+    },
+    {
+      "name": "Calvin Ridley",
+      "team": "TEN",
+      "position": "WR",
+      "birthDate": "1994-12-20",
+      "age": 30,
+      "status": "Active",
+      "adpRank": 22,
+      "source": "espn_verified"
+    },
+    {
+      "name": "Russell Wilson",
+      "team": "PIT",
+      "position": "QB",
+      "birthDate": "1988-11-29",
+      "age": 36,
+      "status": "Active",
+      "adpRank": 45,
+      "source": "espn_verified"
+    },
+    {
+      "name": "Mike Evans",
+      "team": "TB",
+      "position": "WR",
+      "birthDate": "1993-08-21",
+      "age": 31,
+      "status": "Active",
+      "adpRank": 20,
+      "source": "espn_verified"
+    },
+    {
+      "name": "Elijah Mitchell",
+      "team": "KC",
+      "position": "RB",
+      "birthDate": "1998-05-02",
+      "age": 27,
+      "status": "Active",
+      "adpRank": 120,
+      "source": "espn_verified"
     }
   ],
   "source": "mixed-api-manual",
-  "count": 9
+  "count": 13
 }

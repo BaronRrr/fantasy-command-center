@@ -10,7 +10,8 @@ class FantasyWebsiteLearner {
       draftsharks_rookies: 'https://www.draftsharks.com/adp/rookie/ppr/sleeper/12',
       draftsharks_bestball: 'https://www.draftsharks.com/adp/best-ball/half-ppr/underdog/12',
       fantasypros_rankings: 'https://www.fantasypros.com/nfl/rankings/consensus-cheatsheets.php',
-      fantasypros_adp: 'https://www.fantasypros.com/nfl/adp/overall.php'
+      fantasypros_adp: 'https://www.fantasypros.com/nfl/adp/overall.php',
+      yahoo_articles: 'https://football.fantasysports.yahoo.com'
     };
     this.learnedData = {};
   }
@@ -53,6 +54,8 @@ class FantasyWebsiteLearner {
         return this.parseFantasyProsRankings($);
       case 'fantasypros_adp':
         return this.parseFantasyProsADP($);
+      case 'yahoo_articles':
+        return this.parseYahooArticles($);
       default:
         throw new Error(`Unknown site: ${site}`);
     }
@@ -203,6 +206,53 @@ class FantasyWebsiteLearner {
     return {
       players: players,
       type: 'adp_data',
+      lastUpdated: new Date().toISOString()
+    };
+  }
+
+  parseYahooArticles($) {
+    const articles = [];
+    
+    // Parse Yahoo Fantasy Sports articles for insights
+    $('.Mb\\(12px\\), .article-wrap, .article-item').each((i, element) => {
+      const $element = $(element);
+      const title = $element.find('h3, .article-title, .headline').text().trim();
+      const link = $element.find('a').attr('href');
+      const summary = $element.find('.article-summary, .summary, p').first().text().trim();
+      
+      if (title) {
+        articles.push({
+          title: title,
+          link: link ? (link.startsWith('http') ? link : `https://football.fantasysports.yahoo.com${link}`) : '',
+          summary: summary,
+          source: 'yahoo_fantasy',
+          timestamp: new Date().toISOString()
+        });
+      }
+    });
+
+    // Also look for featured articles
+    $('.featured-story, .lead-story').each((i, element) => {
+      const $element = $(element);
+      const title = $element.find('h1, h2, h3').text().trim();
+      const link = $element.find('a').attr('href');
+      const summary = $element.find('p').first().text().trim();
+      
+      if (title) {
+        articles.push({
+          title: title,
+          link: link ? (link.startsWith('http') ? link : `https://football.fantasysports.yahoo.com${link}`) : '',
+          summary: summary,
+          source: 'yahoo_fantasy',
+          timestamp: new Date().toISOString(),
+          featured: true
+        });
+      }
+    });
+
+    return {
+      articles: articles,
+      type: 'fantasy_articles',
       lastUpdated: new Date().toISOString()
     };
   }

@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2025-08-20T02:30:44.522Z",
+  "lastUpdated": "2025-08-20T02:36:14.004Z",
   "websites": {
     "draftsharks_rookies": {
       "players": [],
@@ -7,7 +7,7 @@
       "format": "PPR",
       "platform": "Sleeper",
       "teams": 12,
-      "lastUpdated": "2025-08-20T02:30:43.210Z"
+      "lastUpdated": "2025-08-20T02:36:12.265Z"
     },
     "draftsharks_bestball": {
       "players": [],
@@ -15,21 +15,26 @@
       "format": "Half-PPR",
       "platform": "Underdog",
       "teams": 12,
-      "lastUpdated": "2025-08-20T02:30:44.154Z"
+      "lastUpdated": "2025-08-20T02:36:13.174Z"
     },
     "fantasypros_rankings": {
       "players": [],
       "type": "consensus_rankings",
-      "lastUpdated": "2025-08-20T02:30:44.422Z"
+      "lastUpdated": "2025-08-20T02:36:13.476Z"
     },
     "fantasypros_adp": {
       "players": [],
       "type": "adp_data",
-      "lastUpdated": "2025-08-20T02:30:44.522Z"
+      "lastUpdated": "2025-08-20T02:36:13.587Z"
+    },
+    "yahoo_articles": {
+      "articles": [],
+      "type": "fantasy_articles",
+      "lastUpdated": "2025-08-20T02:36:14.003Z"
     }
   },
   "summary": {
     "totalPlayers": 0,
-    "sourcesLearned": 4
+    "sourcesLearned": 5
   }
 }

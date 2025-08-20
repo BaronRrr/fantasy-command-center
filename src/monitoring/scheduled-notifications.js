@@ -3,6 +3,8 @@ const winston = require('winston');
 const AdvancedDataMonitor = require('./advanced-data-monitor');
 const TwitterMonitor = require('./twitter-monitor');
 const DiscordNotifier = require('../notifications/discord-notifier');
+const NewsArticleFetcher = require('../data-update/news-article-fetcher');
+const SimpleTrendingAnalyzer = require('../services/simple-trending');
 
 const logger = winston.createLogger({
   level: 'info',
@@ -17,10 +19,13 @@ const logger = winston.createLogger({
 });
 
 class ScheduledNotifications {
-  constructor() {
+  constructor(injuryMonitor = null) {
     this.dataMonitor = new AdvancedDataMonitor();
     this.twitterMonitor = new TwitterMonitor();
     this.discordNotifier = new DiscordNotifier();
+    this.newsArticleFetcher = new NewsArticleFetcher();
+    this.trendingAnalyzer = new SimpleTrendingAnalyzer();
+    this.injuryMonitor = injuryMonitor;
     this.isActive = false;
     
     // Track sent alerts to prevent duplicates
@@ -163,7 +168,14 @@ class ScheduledNotifications {
     try {
       logger.info('🌆 Generating evening wrap-up report...');
 
-      const intelligence = await this.dataMonitor.getDraftIntelligence();
+      // Get real news articles from today
+      const todaysNews = await this.getTodaysFantasyNews();
+      
+      // Get injury updates
+      const injuryStatus = this.injuryMonitor ? this.injuryMonitor.getStatus() : null;
+      
+      // Get trending players
+      const trendingData = await this.getTrendingPlayers();
 
       const embed = {
         title: '🌆 Evening Fantasy Wrap-Up',
@@ -176,29 +188,119 @@ class ScheduledNotifications {
         }
       };
 
-      // Day's Key Updates
-      if (intelligence.critical_alerts.length > 0) {
+      // Real news from today
+      if (todaysNews && todaysNews.length > 0) {
         embed.fields.push({
           name: '📰 Today\'s Key Developments',
-          value: intelligence.critical_alerts.slice(0, 4).map(alert => 
-            `• ${alert.player || alert.team}: ${alert.fantasy_impact || alert.change}`
+          value: todaysNews.slice(0, 4).map(news => 
+            `• ${news.title?.substring(0, 100)}${news.title?.length > 100 ? '...' : ''}`
           ).join('\n'),
           inline: false
         });
       }
 
-      // Tomorrow's Focus
+      // Injury updates if available
+      if (injuryStatus && injuryStatus.knownInjuries > 0) {
+        embed.fields.push({
+          name: '🏥 Injury Monitor',
+          value: `Currently tracking ${injuryStatus.knownInjuries} player injuries\nLast checked: ${new Date(injuryStatus.lastChecked).toLocaleTimeString()}`,
+          inline: true
+        });
+      }
+
+      // Trending players if available
+      if (trendingData && trendingData.length > 0) {
+        embed.fields.push({
+          name: '📈 Trending Players',
+          value: trendingData.slice(0, 3).map(player => 
+            `• ${player.name}: ${player.reason || 'Rising interest'}`
+          ).join('\n'),
+          inline: true
+        });
+      }
+
+      // Tomorrow's Focus with real context
+      const tomorrowFocus = await this.getTomorrowsFocus();
       embed.fields.push({
         name: '🎯 Tomorrow\'s Focus Areas',
-        value: `• Monitor practice reports for injury updates\n• Check depth chart changes\n• Watch for breaking news alerts\n• Review waiver wire opportunities`,
+        value: tomorrowFocus,
         inline: false
       });
 
       await this.discordNotifier.sendEmbed(embed, 'INFO');
-      logger.info('✅ Evening report sent');
+      logger.info('✅ Evening report sent with real news data');
 
     } catch (error) {
       logger.error('Failed to send evening report:', error.message);
+    }
+  }
+
+  async getTodaysFantasyNews() {
+    try {
+      // Get articles from the news fetcher
+      const articles = await this.newsArticleFetcher.getLatestArticles();
+      const today = new Date();
+      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      
+      // Filter for today's articles
+      const todaysArticles = articles.filter(article => {
+        if (!article.publishedAt) return false;
+        const articleDate = new Date(article.publishedAt);
+        return articleDate >= startOfDay;
+      });
+
+      return todaysArticles.slice(0, 5); // Return top 5 articles from today
+    } catch (error) {
+      logger.warn('Failed to get today\'s fantasy news:', error.message);
+      return [];
+    }
+  }
+
+  async getTrendingPlayers() {
+    try {
+      // Try to get trending data from the bot's trending analyzer
+      if (this.trendingAnalyzer) {
+        const trending = await this.trendingAnalyzer.getTrendingPlayers();
+        return trending.slice(0, 3);
+      }
+      return [];
+    } catch (error) {
+      logger.warn('Failed to get trending players:', error.message);
+      return [];
+    }
+  }
+
+  async getTomorrowsFocus() {
+    try {
+      const focuses = [];
+      
+      // Check if it's a game day week
+      const today = new Date();
+      const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+      
+      if (dayOfWeek >= 1 && dayOfWeek <= 4) { // Monday-Thursday
+        focuses.push('• Monitor practice reports and injury designations');
+        focuses.push('• Watch for depth chart changes');
+      }
+      
+      if (dayOfWeek >= 4 && dayOfWeek <= 6) { // Thursday-Saturday
+        focuses.push('• Check final injury reports');
+        focuses.push('• Set lineups for weekend games');
+      }
+      
+      if (dayOfWeek === 0 || dayOfWeek === 1) { // Sunday/Monday
+        focuses.push('• Review waiver wire targets');
+        focuses.push('• Analyze game results and snap counts');
+      }
+      
+      // Always include these
+      focuses.push('• Monitor breaking news alerts');
+      focuses.push('• Check for roster moves and transactions');
+      
+      return focuses.join('\n');
+    } catch (error) {
+      logger.warn('Failed to generate tomorrow\'s focus:', error.message);
+      return '• Monitor practice reports for injury updates\n• Check depth chart changes\n• Watch for breaking news alerts\n• Review waiver wire opportunities';
     }
   }
 
