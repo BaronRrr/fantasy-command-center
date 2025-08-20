@@ -320,7 +320,10 @@ CRITICAL: Only include "articleLinks" field if you have real, working URLs. Do n
 - ESPN trade value charts
 - ESPN waiver wire advice
 
-SECONDARY SOURCES (only if ESPN unavailable):
+SECONDARY SOURCES (complement ESPN data):
+- FantasyPros consensus rankings and expert analysis
+- FantasyPros injury reports and player news
+- FantasyPros ADP and draft data
 - NFL.com official data
 - Team depth charts
 - Weather reports for games

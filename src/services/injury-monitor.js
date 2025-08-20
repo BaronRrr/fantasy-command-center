@@ -22,11 +22,11 @@ class InjuryMonitor {
     this.knownInjuries = new Map();
     this.isMonitoring = false;
     
-    // Injury data sources
+    // Injury data sources (prioritized order)
     this.sources = {
-      nfl: 'https://www.nfl.com/injuries/',
-      espn: 'https://www.espn.com/nfl/injuries',
-      fantasypros: 'https://www.fantasypros.com/nfl/reports/injuries/'
+      espn: 'https://www.espn.com/nfl/injuries', // Primary source
+      fantasypros: 'https://www.fantasypros.com/nfl/reports/injuries/', // Secondary - excellent consensus data
+      nfl: 'https://www.nfl.com/injuries/' // Tertiary - official but slower updates
     };
   }
 
