@@ -35,31 +35,34 @@ class CurrentPlayerFetcher {
   async fetchFromMultipleSources() {
     const players = [];
     
-    // Source 1: Try ESPN API for current rosters
+    // PRIORITY 1: ESPN API - Primary source for all data
     try {
-      console.log('📡 Attempting ESPN API...');
+      console.log('🏆 ESPN API (PRIMARY SOURCE)...');
       const espnPlayers = await this.fetchESPNPlayers();
       players.push(...espnPlayers);
       console.log(`✅ ESPN: ${espnPlayers.length} players`);
+      
+      // If ESPN provides data, prioritize it over all other sources
+      if (espnPlayers.length > 0) {
+        console.log('📊 ESPN data available - using as primary source');
+      }
     } catch (error) {
       console.log(`⚠️ ESPN API failed: ${error.message}`);
     }
 
-    // Source 2: NFL.com API (if available)
+    // PRIORITY 2: ESPN Fantasy-specific endpoints
     try {
-      console.log('📡 Attempting NFL.com data...');
-      const nflPlayers = await this.fetchNFLPlayers();
-      players.push(...nflPlayers);
-      console.log(`✅ NFL.com: ${nflPlayers.length} players`);
+      console.log('🏈 ESPN Fantasy API...');
+      const espnFantasyPlayers = await this.fetchESPNFantasyData();
+      players.push(...espnFantasyPlayers);
+      console.log(`✅ ESPN Fantasy: ${espnFantasyPlayers.length} players`);
     } catch (error) {
-      console.log(`⚠️ NFL.com failed: ${error.message}`);
+      console.log(`⚠️ ESPN Fantasy API failed: ${error.message}`);
     }
 
-    // Source 3: Fallback to manual key player updates
-    if (players.length === 0) {
-      console.log('📝 Using manual key player updates...');
-      players.push(...this.getKeyPlayerUpdates());
-    }
+    // PRIORITY 3: Manual updates with ESPN-verified data
+    console.log('📝 Using ESPN-verified key player updates...');
+    players.push(...this.getESPNVerifiedPlayerUpdates());
 
     return this.deduplicatePlayers(players);
   }
