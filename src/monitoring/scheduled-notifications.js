@@ -237,19 +237,57 @@ class ScheduledNotifications {
 
   async getTodaysFantasyNews() {
     try {
-      // Get articles from the news fetcher
-      const articles = await this.newsArticleFetcher.getLatestArticles();
+      // Get articles from the news fetcher  
+      const articles = await this.newsArticleFetcher.fetchLatestArticles();
       const today = new Date();
-      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
       
-      // Filter for today's articles
-      const todaysArticles = articles.filter(article => {
-        if (!article.publishedAt) return false;
+      // Filter for recent articles with real 2025-2026 season content
+      const recentArticles = articles.filter(article => {
+        if (!article.publishedAt || !article.title) return false;
+        
+        // Skip generic/placeholder titles
+        if (article.title.includes('Latest Fantasy News from') || 
+            article.title.includes('Latest News from') ||
+            article.title.includes('Fantasy Football News') ||
+            article.title.trim().length < 15) return false;
+            
+        // Skip outdated content (2024 season references)
+        if (article.title.includes('Week 15') || 
+            article.title.includes('Week 16') ||
+            article.title.includes('Week 17') ||
+            article.title.includes('Week 18') ||
+            article.title.includes('2024')) return false;
+            
         const articleDate = new Date(article.publishedAt);
-        return articleDate >= startOfDay;
+        const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+        return articleDate >= twoHoursAgo; // Last 2 hours for real-time
       });
 
-      return todaysArticles.slice(0, 5); // Return top 5 articles from today
+      // If no recent real-time articles, get today's preseason/training camp news
+      if (recentArticles.length === 0) {
+        const todaysArticles = articles.filter(article => {
+          if (!article.publishedAt || !article.title) return false;
+          
+          // Skip generic titles
+          if (article.title.includes('Latest Fantasy News from') || 
+              article.title.trim().length < 10) return false;
+              
+          // Include preseason/training camp content
+          if (article.title.includes('preseason') ||
+              article.title.includes('training camp') ||
+              article.title.includes('practice') ||
+              article.title.includes('injured') ||
+              article.title.includes('depth chart')) return true;
+              
+          const articleDate = new Date(article.publishedAt);
+          return articleDate >= yesterday;
+        });
+        
+        return todaysArticles.slice(0, 5);
+      }
+      
+      return recentArticles.slice(0, 5); // Return top 5 real articles
     } catch (error) {
       logger.warn('Failed to get today\'s fantasy news:', error.message);
       return [];
