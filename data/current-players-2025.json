@@ -1,0 +1,79 @@
+{
+  "lastUpdated": "2025-08-20T02:03:07.539Z",
+  "players": [
+    {
+      "name": "Christian McCaffrey",
+      "team": "SF",
+      "position": "RB",
+      "birthDate": "1996-06-07",
+      "age": 29,
+      "status": "Active"
+    },
+    {
+      "name": "Josh Allen",
+      "team": "BUF",
+      "position": "QB",
+      "birthDate": "1996-05-21",
+      "age": 29,
+      "status": "Active"
+    },
+    {
+      "name": "Justin Jefferson",
+      "team": "MIN",
+      "position": "WR",
+      "birthDate": "1999-06-16",
+      "age": 26,
+      "status": "Active"
+    },
+    {
+      "name": "Tyreek Hill",
+      "team": "MIA",
+      "position": "WR",
+      "birthDate": "1994-03-01",
+      "age": 31,
+      "status": "Active"
+    },
+    {
+      "name": "Stefon Diggs",
+      "team": "HOU",
+      "position": "WR",
+      "birthDate": "1993-11-29",
+      "age": 31,
+      "status": "Active"
+    },
+    {
+      "name": "Saquon Barkley",
+      "team": "PHI",
+      "position": "RB",
+      "birthDate": "1997-02-09",
+      "age": 28,
+      "status": "Active"
+    },
+    {
+      "name": "Derrick Henry",
+      "team": "BAL",
+      "position": "RB",
+      "birthDate": "1994-01-04",
+      "age": 31,
+      "status": "Active"
+    },
+    {
+      "name": "Travis Kelce",
+      "team": "KC",
+      "position": "TE",
+      "birthDate": "1989-10-05",
+      "age": 35,
+      "status": "Active"
+    },
+    {
+      "name": "Davante Adams",
+      "team": "NYJ",
+      "position": "WR",
+      "birthDate": "1992-12-24",
+      "age": 32,
+      "status": "Active"
+    }
+  ],
+  "source": "mixed-api-manual",
+  "count": 9
+}
