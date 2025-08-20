@@ -252,39 +252,53 @@ class ScheduledNotifications {
             article.title.includes('Fantasy Football News') ||
             article.title.trim().length < 15) return false;
             
-        // Skip outdated content (2024 season references)
+        // Skip outdated content (old season references)
         if (article.title.includes('Week 15') || 
             article.title.includes('Week 16') ||
             article.title.includes('Week 17') ||
             article.title.includes('Week 18') ||
-            article.title.includes('2024')) return false;
+            article.title.includes('2024') ||
+            article.title.includes('2023') ||
+            article.title.includes('2022') ||
+            article.url?.includes('2023') ||
+            article.url?.includes('2024')) return false;
             
         const articleDate = new Date(article.publishedAt);
         const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
         return articleDate >= twoHoursAgo; // Last 2 hours for real-time
       });
 
-      // If no recent real-time articles, get today's preseason/training camp news
+      // If no recent real-time articles, get current season content
       if (recentArticles.length === 0) {
-        const todaysArticles = articles.filter(article => {
+        const currentSeasonArticles = articles.filter(article => {
           if (!article.publishedAt || !article.title) return false;
           
-          // Skip generic titles
+          // Skip generic titles and old content
           if (article.title.includes('Latest Fantasy News from') || 
+              article.title.includes('2023') ||
+              article.title.includes('2024') ||
+              article.url?.includes('2023') ||
+              article.url?.includes('2024') ||
               article.title.trim().length < 10) return false;
               
-          // Include preseason/training camp content
+          // Prioritize current preseason/training camp content
           if (article.title.includes('preseason') ||
               article.title.includes('training camp') ||
               article.title.includes('practice') ||
-              article.title.includes('injured') ||
-              article.title.includes('depth chart')) return true;
+              article.title.includes('2025') ||
+              article.title.includes('roster') ||
+              article.title.includes('depth chart') ||
+              article.title.includes('injury report')) {
               
-          const articleDate = new Date(article.publishedAt);
-          return articleDate >= yesterday;
+            const articleDate = new Date(article.publishedAt);
+            const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+            return articleDate >= threeDaysAgo; // Last 3 days for seasonal content
+          }
+              
+          return false;
         });
         
-        return todaysArticles.slice(0, 5);
+        return currentSeasonArticles.slice(0, 5);
       }
       
       return recentArticles.slice(0, 5); // Return top 5 real articles
