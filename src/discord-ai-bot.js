@@ -324,6 +324,7 @@ SECONDARY SOURCES (complement ESPN data):
 - FantasyPros consensus rankings and expert analysis
 - FantasyPros injury reports and player news
 - FantasyPros ADP and draft data
+- DraftSharks rookie ADP and sleeper analysis
 - NFL.com official data
 - Team depth charts
 - Weather reports for games
