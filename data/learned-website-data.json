@@ -1,0 +1,35 @@
+{
+  "lastUpdated": "2025-08-20T02:30:44.522Z",
+  "websites": {
+    "draftsharks_rookies": {
+      "players": [],
+      "type": "rookie_adp",
+      "format": "PPR",
+      "platform": "Sleeper",
+      "teams": 12,
+      "lastUpdated": "2025-08-20T02:30:43.210Z"
+    },
+    "draftsharks_bestball": {
+      "players": [],
+      "type": "best_ball_adp",
+      "format": "Half-PPR",
+      "platform": "Underdog",
+      "teams": 12,
+      "lastUpdated": "2025-08-20T02:30:44.154Z"
+    },
+    "fantasypros_rankings": {
+      "players": [],
+      "type": "consensus_rankings",
+      "lastUpdated": "2025-08-20T02:30:44.422Z"
+    },
+    "fantasypros_adp": {
+      "players": [],
+      "type": "adp_data",
+      "lastUpdated": "2025-08-20T02:30:44.522Z"
+    }
+  },
+  "summary": {
+    "totalPlayers": 0,
+    "sourcesLearned": 4
+  }
+}
