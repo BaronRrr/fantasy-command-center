@@ -174,6 +174,10 @@ class ScheduledNotifications {
       
       // Get trending players
       const trendingData = await this.getTrendingPlayers();
+      
+      // Get today's game results and fantasy performers
+      const gameResults = await this.getTodaysGameResults();
+      const topPerformers = await this.getTodaysTopPerformers();
 
       const embed = {
         title: '🌆 Evening Fantasy Wrap-Up',
@@ -192,6 +196,28 @@ class ScheduledNotifications {
           name: '📰 Today\'s Key Developments',
           value: todaysNews.slice(0, 4).map(news => 
             `• ${news.title?.substring(0, 100)}${news.title?.length > 100 ? '...' : ''}`
+          ).join('\n'),
+          inline: false
+        });
+      }
+
+      // Game results (preseason or regular season)
+      if (gameResults && gameResults.length > 0) {
+        embed.fields.push({
+          name: '🏈 Today\'s Game Results',
+          value: gameResults.slice(0, 4).map(game => 
+            `• **${game.awayTeam}** ${game.awayScore} - ${game.homeScore} **${game.homeTeam}** (${game.status})`
+          ).join('\n'),
+          inline: false
+        });
+      }
+
+      // Top fantasy performers from today's games
+      if (topPerformers && topPerformers.length > 0) {
+        embed.fields.push({
+          name: '⭐ Tonight\'s Top Fantasy Performers',
+          value: topPerformers.slice(0, 5).map(player => 
+            `• **${player.name}** (${player.team}): ${player.stats}`
           ).join('\n'),
           inline: false
         });
@@ -395,6 +421,62 @@ class ScheduledNotifications {
     } catch (error) {
       logger.warn('Failed to generate today\'s actual focus:', error.message);
       return 'Monitor practice reports and breaking news for lineup impact';
+    }
+  }
+
+  async getTodaysGameResults() {
+    try {
+      // Fetch game results from ESPN for today
+      const today = new Date();
+      const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
+      
+      const axios = require('axios');
+      const response = await axios.get(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${dateStr}`, {
+        timeout: 10000
+      });
+      
+      const games = response.data.events || [];
+      const gameResults = [];
+      
+      for (const game of games.slice(0, 8)) { // Limit to 8 games
+        const homeTeam = game.competitions[0].competitors.find(team => team.homeAway === 'home');
+        const awayTeam = game.competitions[0].competitors.find(team => team.homeAway === 'away');
+        
+        // Only include completed or in-progress games
+        if (game.status.type.state === 'post' || game.status.type.state === 'in') {
+          gameResults.push({
+            awayTeam: awayTeam.team.abbreviation,
+            awayScore: awayTeam.score,
+            homeTeam: homeTeam.team.abbreviation,
+            homeScore: homeTeam.score,
+            status: game.status.type.description,
+            gameType: game.season.type === 1 ? 'Preseason' : 'Regular'
+          });
+        }
+      }
+      
+      return gameResults;
+    } catch (error) {
+      logger.warn('Failed to get today\'s game results:', error.message);
+      return [];
+    }
+  }
+
+  async getTodaysTopPerformers() {
+    try {
+      // Get recent fantasy-relevant performances
+      // This would typically integrate with live stats API
+      // For now, return sample structure that can be populated
+      
+      const performers = [];
+      
+      // In a real implementation, this would fetch from ESPN GameCenter or similar
+      // For preseason, focus on notable performances that matter for fantasy
+      
+      return performers; // Will be populated when live stats are available
+    } catch (error) {
+      logger.warn('Failed to get today\'s top performers:', error.message);
+      return [];
     }
   }
 
