@@ -89,63 +89,61 @@ class ScheduledNotifications {
     try {
       logger.info('🌅 Generating morning fantasy intelligence report...');
 
-      const intelligence = await this.dataMonitor.getDraftIntelligence();
-      const twitterInsights = this.twitterMonitor.getDraftRelevantInsights(null, 720); // Last 12 hours
+      // Get REAL current data instead of cached intelligence
+      const realNews = await this.getTodaysFantasyNews();
+      const realTrending = await this.getTrendingPlayers();
 
       const embed = {
         title: '🌅 Daily Fantasy Intelligence Report',
-        description: `Good morning! Here's your fantasy football intelligence briefing.`,
+        description: `Good morning! Here's your real-time fantasy football briefing for ${new Date().toLocaleDateString()}.`,
         color: 0x00FF00,
         fields: [],
         timestamp: new Date().toISOString(),
         footer: {
-          text: 'Fantasy Command Center • Morning Report'
+          text: 'Fantasy Command Center • Real-time Morning Report'
         }
       };
 
-      // Critical Alerts
-      if (intelligence.critical_alerts.length > 0) {
+      // Real NFL News Headlines
+      if (realNews && realNews.length > 0) {
         embed.fields.push({
-          name: '🚨 Overnight Critical Updates',
-          value: intelligence.critical_alerts.slice(0, 3).map(alert => 
-            `• ${alert.player || alert.team}: ${alert.fantasy_impact || alert.change}`
-          ).join('\n') || 'No critical updates',
-          inline: false
-        });
-      }
-
-      // Trending Players
-      if (intelligence.trending_players.length > 0) {
-        embed.fields.push({
-          name: '📈 Trending Players (Reddit Buzz)',
-          value: intelligence.trending_players.slice(0, 5).map(player => 
-            `• ${player.name} (${player.mentions} mentions)`
-          ).join('\n'),
-          inline: true
-        });
-      }
-
-      // Opportunities
-      if (intelligence.opportunities.length > 0) {
-        embed.fields.push({
-          name: '💡 Fantasy Opportunities',
-          value: intelligence.opportunities.slice(0, 3).map(opp => 
-            `• ${opp.player}: ${opp.fantasy_impact}`
-          ).join('\n'),
-          inline: true
-        });
-      }
-
-      // Twitter Breaking News
-      if (twitterInsights && twitterInsights.critical_news.length > 0) {
-        embed.fields.push({
-          name: '🐦 Overnight Twitter News',
-          value: twitterInsights.critical_news.slice(0, 2).map(news => 
-            `• ${news.content.substring(0, 80)}...`
+          name: '📰 Latest NFL Developments',
+          value: realNews.slice(0, 4).map(news => 
+            `• ${news.title.substring(0, 80)}${news.title.length > 80 ? '...' : ''}`
           ).join('\n'),
           inline: false
         });
       }
+
+      // Real Trending Players (filtered for actual players)
+      if (realTrending && realTrending.length > 0) {
+        const validTrending = realTrending.filter(player => 
+          player.name && 
+          player.name.length > 6 && 
+          !player.name.includes('The ') &&
+          !player.name.includes('That ') &&
+          !player.name.includes('Win You') &&
+          !player.name.includes('Between')
+        );
+        
+        if (validTrending.length > 0) {
+          embed.fields.push({
+            name: '📈 Players Gaining Attention',
+            value: validTrending.slice(0, 5).map(player => 
+              `• **${player.name}**: ${player.reason || 'Trending on Reddit'}`
+            ).join('\n'),
+            inline: false
+          });
+        }
+      }
+
+      // Today's Focus (actual current context)
+      const todaysFocus = await this.getTodayActualFocus();
+      embed.fields.push({
+        name: '🎯 Today\'s Focus',
+        value: todaysFocus,
+        inline: false
+      });
 
       if (embed.fields.length === 0) {
         embed.fields.push({
@@ -312,13 +310,91 @@ class ScheduledNotifications {
     try {
       // Try to get trending data from the bot's trending analyzer
       if (this.trendingAnalyzer) {
-        const trending = await this.trendingAnalyzer.getTrendingPlayers();
-        return trending.slice(0, 3);
+        const rawTrending = await this.trendingAnalyzer.getTrendingPlayers();
+        
+        // Filter out fake/invalid players that have been appearing
+        const validTrending = rawTrending.filter(player => {
+          if (!player.name || typeof player.name !== 'string') return false;
+          
+          const name = player.name.toLowerCase();
+          
+          // Filter out obvious fake names/phrases
+          if (name.includes('brady henderson') ||
+              name.includes('between charbonnet') ||
+              name.includes('that could') ||
+              name.includes('win you') ||
+              name.includes('the ') ||
+              name.includes('that ') ||
+              name.includes('what ') ||
+              name.includes('who ') ||
+              name.includes('when ') ||
+              name.includes('will not') ||
+              name.includes('should') ||
+              name.includes('could') ||
+              name.length < 6 ||
+              name.length > 25) {
+            return false;
+          }
+          
+          // Must have typical player name pattern (First Last)
+          const nameParts = player.name.trim().split(' ');
+          if (nameParts.length < 2 || nameParts.length > 3) return false;
+          
+          // Each part should start with capital letter
+          return nameParts.every(part => /^[A-Z][a-z]/.test(part));
+        });
+        
+        return validTrending.slice(0, 3);
       }
       return [];
     } catch (error) {
       logger.warn('Failed to get trending players:', error.message);
       return [];
+    }
+  }
+
+  async getTodayActualFocus() {
+    try {
+      const focuses = [];
+      const today = new Date();
+      const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+      
+      // Check for real news and trending developments
+      const realNews = await this.getTodaysFantasyNews();
+      const trending = await this.getTrendingPlayers();
+      
+      // Build focus based on actual current developments
+      if (realNews && realNews.length > 0) {
+        const newsTopics = realNews.slice(0, 2).map(news => {
+          const title = news.title.length > 50 ? news.title.substring(0, 47) + '...' : news.title;
+          return `• ${title}`;
+        });
+        focuses.push(...newsTopics);
+      }
+      
+      // Add trending player focus if available
+      if (trending && trending.length > 0) {
+        const topTrending = trending[0];
+        focuses.push(`• Monitor ${topTrending.name} developments`);
+      }
+      
+      // Add day-specific focus
+      if (dayOfWeek >= 1 && dayOfWeek <= 4) { // Monday-Thursday
+        focuses.push('• Track practice participation reports');
+      } else if (dayOfWeek >= 5 && dayOfWeek <= 6) { // Friday-Saturday  
+        focuses.push('• Watch for final injury designations');
+      } else { // Sunday
+        focuses.push('• Monitor live game developments');
+      }
+      
+      // Always include breaking news monitoring
+      focuses.push('• Stay alert for breaking news');
+      
+      return focuses.length > 0 ? focuses.join('\n') : 'Monitor practice reports and breaking news for lineup impact';
+      
+    } catch (error) {
+      logger.warn('Failed to generate today\'s actual focus:', error.message);
+      return 'Monitor practice reports and breaking news for lineup impact';
     }
   }
 
