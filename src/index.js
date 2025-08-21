@@ -2,24 +2,16 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
-const config = require('../config');
+const config = require('./config/environment');
 const DraftMonitor = require('./services/draft-monitor');
 const DiscordNotifier = require('./alerts/discord-bot');
 const ExternalAPIsClient = require('./api/external-apis');
-const winston = require('winston');
+const createLogger = require('./utils/logger');
+const errorHandler = require('./utils/error-handler');
+const { Validator, ValidationError } = require('./utils/validation');
+const rateLimiter = require('./middleware/rate-limiter');
 
-const logger = winston.createLogger({
-  level: config.logging.level,
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.errors({ stack: true }),
-    winston.format.json()
-  ),
-  transports: [
-    new winston.transports.Console(),
-    ...(config.logging.file ? [new winston.transports.File({ filename: config.logging.file })] : [])
-  ]
-});
+const logger = createLogger(config.logging.level);
 
 class FantasyCommandCenter {
   constructor() {
@@ -28,6 +20,9 @@ class FantasyCommandCenter {
     this.discordNotifier = new DiscordNotifier();
     this.externalAPIs = new ExternalAPIsClient();
     this.isInitialized = false;
+    
+    // Setup global error handlers
+    errorHandler.setupGlobalHandlers();
   }
 
   async initialize() {
@@ -51,11 +46,49 @@ class FantasyCommandCenter {
   }
 
   setupMiddleware() {
-    this.app.use(helmet());
+    // Security middleware
+    this.app.use(helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          scriptSrc: ["'self'"],
+          imgSrc: ["'self'", "data:", "https:"],
+        },
+      },
+    }));
+    
+    // CORS
     this.app.use(cors(config.server.cors));
-    this.app.use(morgan('combined'));
-    this.app.use(express.json({ limit: '10mb' }));
-    this.app.use(express.urlencoded({ extended: true }));
+    
+    // Rate limiting
+    this.app.use('/api/', rateLimiter.createMiddleware());
+    
+    // Logging
+    this.app.use(morgan('combined', {
+      stream: {
+        write: (message) => logger.info(message.trim())
+      }
+    }));
+    
+    // Body parsing with size limits
+    this.app.use(express.json({ 
+      limit: '1mb',
+      verify: (req, res, buf, encoding) => {
+        // Validate JSON size
+        if (buf.length > 1048576) { // 1MB
+          throw new Error('Request entity too large');
+        }
+      }
+    }));
+    
+    this.app.use(express.urlencoded({ 
+      extended: true, 
+      limit: '1mb' 
+    }));
+
+    // Trust proxy for accurate IP addresses
+    this.app.set('trust proxy', 1);
   }
 
   setupRoutes() {
@@ -105,27 +138,71 @@ class FantasyCommandCenter {
     // Player data endpoints
     this.app.get('/players/search', async (req, res) => {
       try {
-        const { query, limit = 20 } = req.query;
-        if (!query) {
-          return res.status(400).json({ error: 'Query parameter is required' });
-        }
+        const query = Validator.validateString(req.query.query, 'query', { 
+          required: true, 
+          minLength: 2, 
+          maxLength: 50 
+        });
         
-        const players = await this.draftMonitor.searchPlayers(query, parseInt(limit));
-        res.json(players);
+        const limit = Validator.validateNumber(req.query.limit || 20, 'limit', { 
+          min: 1, 
+          max: 100, 
+          integer: true 
+        });
+        
+        const players = await this.draftMonitor.searchPlayers(query, limit);
+        res.json({ 
+          success: true, 
+          data: players,
+          query: query,
+          limit: limit
+        });
       } catch (error) {
-        res.status(500).json({ error: error.message });
+        if (error instanceof ValidationError) {
+          return res.status(400).json({ 
+            success: false, 
+            error: error.message 
+          });
+        }
+        const errorResponse = errorHandler.handleAPIError(error, 'Player Search');
+        res.status(errorResponse.status).json(errorResponse);
       }
     });
 
     this.app.get('/players/position/:position', async (req, res) => {
       try {
-        const { position } = req.params;
-        const { limit = 10 } = req.query;
+        const validPositions = ['QB', 'RB', 'WR', 'TE', 'K', 'DST'];
+        const position = req.params.position.toUpperCase();
         
-        const players = await this.draftMonitor.getAvailablePlayersByPosition(position, parseInt(limit));
-        res.json(players);
+        if (!validPositions.includes(position)) {
+          return res.status(400).json({ 
+            success: false,
+            error: `Invalid position. Valid positions: ${validPositions.join(', ')}` 
+          });
+        }
+        
+        const limit = Validator.validateNumber(req.query.limit || 10, 'limit', { 
+          min: 1, 
+          max: 50, 
+          integer: true 
+        });
+        
+        const players = await this.draftMonitor.getAvailablePlayersByPosition(position, limit);
+        res.json({ 
+          success: true, 
+          data: players,
+          position: position,
+          limit: limit
+        });
       } catch (error) {
-        res.status(500).json({ error: error.message });
+        if (error instanceof ValidationError) {
+          return res.status(400).json({ 
+            success: false, 
+            error: error.message 
+          });
+        }
+        const errorResponse = errorHandler.handleAPIError(error, 'Position Search');
+        res.status(errorResponse.status).json(errorResponse);
       }
     });
 
