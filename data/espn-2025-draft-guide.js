@@ -1,7 +1,11 @@
 /**
- * ESPN 2025 Fantasy Football Draft Guide Knowledge Base
+ * ESPN 2025 Fantasy Football Draft Guide - REFERENCE OPINIONS ONLY
  * Source: https://www.espn.com/fantasy/football/story/_/page/FFDraftGuide25-45508190/2025-fantasy-football-rankings-mock-draft-cheat-sheets-sleepers
  * Last Updated: August 21, 2025
+ * 
+ * WARNING: These are ESPN expert opinions for reference only.
+ * Use your own analysis and judgment for actual draft decisions.
+ * Some takes may be contrarian or questionable (e.g., Jeanty > Barkley).
  */
 
 const ESPN_2025_DRAFT_GUIDE = {
@@ -26,11 +30,12 @@ const ESPN_2025_DRAFT_GUIDE = {
     topTier: {
       ashtonJeanty: {
         name: "Ashton Jeanty",
-        position: "RB",
+        position: "RB", 
         team: "Las Vegas Raiders",
-        analysis: "Some experts rank ahead of Saquon Barkley - immediate impact expected",
+        analysis: "CONTRARIAN TAKE: Some ESPN experts rank ahead of Saquon Barkley - highly debatable",
         adp: "Late 1st/Early 2nd round",
-        upside: "RB1 potential with volume in Raiders offense"
+        upside: "RB1 potential with volume in Raiders offense",
+        warning: "Rookie risk vs proven elite talent like Barkley - use caution"
       }
     },
     
@@ -204,11 +209,12 @@ const ESPN_2025_DRAFT_GUIDE = {
     ]
   },
 
-  // Expert Consensus
+  // Expert Consensus - REFERENCE ONLY
   expertInsights: {
     mikeClayStrategy: "Position-by-position approach with late QB strategy",
-    tristanCockcroftRounds: "Specific recommendations for rounds 1-2 by league size",
-    consensusApproach: "Balance floor and ceiling based on draft position"
+    tristanCockcroftRounds: "Specific recommendations for rounds 1-2 by league size", 
+    consensusApproach: "Balance floor and ceiling based on draft position",
+    disclaimer: "These are ESPN expert opinions for discussion - not definitive rankings. Trust your own analysis for draft day decisions."
   },
 
   lastUpdated: "2025-08-21",
