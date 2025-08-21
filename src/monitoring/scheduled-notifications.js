@@ -276,6 +276,21 @@ class ScheduledNotifications {
             article.title.includes('Fantasy Football News') ||
             article.title.trim().length < 15) return false;
             
+        // Skip non-football content - we only want NFL/fantasy football
+        if (article.title.toLowerCase().includes('baseball') ||
+            article.title.toLowerCase().includes('mlb') ||
+            article.title.toLowerCase().includes('basketball') ||
+            article.title.toLowerCase().includes('nba') ||
+            article.title.toLowerCase().includes('hockey') ||
+            article.title.toLowerCase().includes('nhl') ||
+            article.title.toLowerCase().includes('soccer') ||
+            article.title.toLowerCase().includes('prospects stash') ||
+            article.title.toLowerCase().includes('redraft leagues (week') ||
+            article.url?.toLowerCase().includes('baseball') ||
+            article.url?.toLowerCase().includes('mlb') ||
+            article.url?.toLowerCase().includes('basketball') ||
+            article.url?.toLowerCase().includes('nba')) return false;
+            
         // Skip outdated content (old season references)
         if (article.title.includes('Week 15') || 
             article.title.includes('Week 16') ||
@@ -304,6 +319,21 @@ class ScheduledNotifications {
               article.url?.includes('2023') ||
               article.url?.includes('2024') ||
               article.title.trim().length < 10) return false;
+              
+          // Skip non-football content - we only want NFL/fantasy football
+          if (article.title.toLowerCase().includes('baseball') ||
+              article.title.toLowerCase().includes('mlb') ||
+              article.title.toLowerCase().includes('basketball') ||
+              article.title.toLowerCase().includes('nba') ||
+              article.title.toLowerCase().includes('hockey') ||
+              article.title.toLowerCase().includes('nhl') ||
+              article.title.toLowerCase().includes('soccer') ||
+              article.title.toLowerCase().includes('prospects stash') ||
+              article.title.toLowerCase().includes('redraft leagues (week') ||
+              article.url?.toLowerCase().includes('baseball') ||
+              article.url?.toLowerCase().includes('mlb') ||
+              article.url?.toLowerCase().includes('basketball') ||
+              article.url?.toLowerCase().includes('nba')) return false;
               
           // Prioritize current preseason/training camp content
           if (article.title.includes('preseason') ||
