@@ -794,6 +794,7 @@ Respond in JSON format for Discord embeds.`;
     const username = message.author?.username || 'User';
     
     console.log(`📝 Processing dot command: "${command}" from ${username}`);
+    console.log(`🔍 FIRST HANDLER: Processing "${command}" from ${username}`);
     
     // Initialize draft state if needed
     if (!this.draftState) {
@@ -2282,6 +2283,7 @@ Make it ESPN-quality analysis with specific fantasy advice. No generic content.`
     const command = content.trim().toLowerCase();
     
     logger.info(`📝 Processing dot command: "${content}" from ${username}`);
+    console.log(`🔍 SECOND HANDLER: Processing "${command}" from ${username}`);
     
     try {
       if (command === '.help') {
