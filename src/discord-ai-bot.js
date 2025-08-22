@@ -1877,6 +1877,8 @@ Focus on value and team needs. Keep it concise for live draft.`;
     console.log(`📰 ${username} requested latest news articles`);
     
     try {
+      // Add immediate confirmation log
+      console.log(`🔄 Processing news request for ${username}...`);
       // Get user's drafted players for personalization
       const userPlayers = this.getUserDraftedPlayers(username);
       
@@ -1948,14 +1950,18 @@ Total response must be under 1500 characters. Use Discord markdown formatting.`;
         };
         
         await this.discordNotifier.sendNewsAlert(newsEmbed);
-        return `📰 **News digest sent to #newsarticles!**\n\n🔗 ${articles.length} articles from ${sources.length} sources\n⏰ Updated: ${new Date().toLocaleTimeString()}`;
+        const confirmationMessage = `📰 **News digest sent to #newsarticles!**\n\n🔗 ${articles.length} articles from ${sources.length} sources\n⏰ Updated: ${new Date().toLocaleTimeString()}`;
+        console.log(`✅ News confirmation message for ${username}: ${confirmationMessage}`);
+        return confirmationMessage;
       } else {
         // Fallback - show summary in current channel
+        console.log(`⚠️ No Discord notifier available, sending fallback message to ${username}`);
         return finalMessage;
       }
     } catch (error) {
-      console.error('Failed to fetch news articles:', error.message);
-      return '❌ Failed to fetch news articles. Please try again later.';
+      console.error(`❌ News command failed for ${username}:`, error.message);
+      console.error('Full error:', error);
+      return `❌ Failed to fetch news articles: ${error.message}. Please try again later.`;
     }
   }
 
