@@ -1884,19 +1884,30 @@ Focus on value and team needs. Keep it concise for live draft.`;
       // Get user's drafted players for personalization
       const userPlayers = this.getUserDraftedPlayers(username);
       
-      // Fetch real fantasy football news articles (get more for better analysis)
+      // Fetch real fantasy football news articles (FORCE FRESH - no cache)
+      console.log(`📡 FORCING FRESH NEWS FETCH for ${username}`);
+      
+      // Clear any cache and force fresh fetch
+      if (this.newsArticleFetcher.clearCache) {
+        this.newsArticleFetcher.clearCache();
+      }
+      
       const articles = await this.newsArticleFetcher.fetchLatestArticles(15);
       
-      // Filter for 2025 articles only (remove any outdated content)
-      const current2025Articles = articles.filter(article => {
-        if (!article.publishedAt) return true; // Keep articles without dates for now
+      // Filter for RECENT articles only (last 48 hours max)
+      const now = new Date();
+      const twoDaysAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000);
+      
+      const recentArticles = articles.filter(article => {
+        if (!article.publishedAt) return false; // Exclude articles without dates
         const articleDate = new Date(article.publishedAt);
-        const currentYear = new Date().getFullYear();
-        return articleDate.getFullYear() === currentYear; // Only 2025 articles
+        return articleDate > twoDaysAgo; // Only articles from last 48 hours
       });
       
-      // Prioritize articles about user's players (use filtered 2025 articles)
-      const prioritizedArticles = this.prioritizeUserRelevantArticles(current2025Articles, userPlayers);
+      console.log(`📅 Filtered to ${recentArticles.length} recent articles (last 48h) from ${articles.length} total`);
+      
+      // Prioritize articles about user's players (use recent articles)
+      const prioritizedArticles = this.prioritizeUserRelevantArticles(recentArticles, userPlayers);
       
       // DEBUG: Log what articles we're actually getting
       console.log(`📄 DEBUG: Got ${articles.length} total articles, ${prioritizedArticles.length} prioritized`);
@@ -1905,7 +1916,16 @@ Focus on value and team needs. Keep it concise for live draft.`;
       });
       
       if (prioritizedArticles.length === 0) {
-        return '📰 No recent fantasy football news found. Check back later!';
+        // Fallback: If no recent articles, use all articles but warn user
+        console.log(`⚠️ No recent articles found, falling back to all ${articles.length} articles`);
+        const fallbackArticles = this.prioritizeUserRelevantArticles(articles.slice(0, 8), userPlayers);
+        
+        if (fallbackArticles.length === 0) {
+          return '📰 No fantasy football news found from any sources. Please try again later!';
+        }
+        
+        // Process fallback articles with same logic but add warning
+        return `⚠️ **Using older articles (fresh news may be limited)**\n\nPlease try again in a few minutes for fresher content.`;
       }
 
       // Use Claude AI to create detailed fantasy football breaking news analysis
