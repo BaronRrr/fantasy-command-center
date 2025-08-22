@@ -1887,8 +1887,22 @@ Focus on value and team needs. Keep it concise for live draft.`;
       // Fetch real fantasy football news articles
       const articles = await this.newsArticleFetcher.fetchLatestArticles(8);
       
-      // Prioritize articles about user's players
-      const prioritizedArticles = this.prioritizeUserRelevantArticles(articles, userPlayers);
+      // Filter for 2025 articles only (remove any outdated content)
+      const current2025Articles = articles.filter(article => {
+        if (!article.publishedAt) return true; // Keep articles without dates for now
+        const articleDate = new Date(article.publishedAt);
+        const currentYear = new Date().getFullYear();
+        return articleDate.getFullYear() === currentYear; // Only 2025 articles
+      });
+      
+      // Prioritize articles about user's players (use filtered 2025 articles)
+      const prioritizedArticles = this.prioritizeUserRelevantArticles(current2025Articles, userPlayers);
+      
+      // DEBUG: Log what articles we're actually getting
+      console.log(`📄 DEBUG: Got ${articles.length} total articles, ${prioritizedArticles.length} prioritized`);
+      prioritizedArticles.slice(0, 3).forEach((article, i) => {
+        console.log(`📄 Article ${i+1}: "${article.title}" from ${article.source} (${article.publishedAt || 'no date'})`);
+      });
       
       if (prioritizedArticles.length === 0) {
         return '📰 No recent fantasy football news found. Check back later!';
@@ -1896,6 +1910,11 @@ Focus on value and team needs. Keep it concise for live draft.`;
 
       // Use Claude AI to create a concise news summary that fits Discord limits
       const newsSummaryPrompt = `Create a concise fantasy football news summary for Discord (max 1500 characters total).
+
+🚨 CRITICAL: WE ARE IN 2025! This is the 2025-2026 NFL season. 
+- DO NOT mention 2024 at all
+- Focus only on 2025 season content, current week preparations, and 2025 fantasy analysis
+- If articles seem outdated, focus on what's relevant for RIGHT NOW in 2025
 
 ARTICLES TO SUMMARIZE:
 ${prioritizedArticles.slice(0, 6).map((article, i) => {
