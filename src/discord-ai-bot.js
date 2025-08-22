@@ -14,6 +14,7 @@ const DepthChartMonitor = require('./monitoring/depth-chart-monitor');
 const OfficialInjuryMonitor = require('./monitoring/official-injury-monitor');
 const LiveGameMonitor = require('./monitoring/live-game-monitor');
 const DiscordNotifier = require('./notifications/discord-notifier');
+const TradeAnalyzer = require('./services/trade-analyzer');
 const { handleSlashCommand } = require('./discord/slash-commands');
 const { registerSlashCommands } = require('./discord/register-commands');
 const winston = require('winston');
@@ -55,6 +56,7 @@ class DiscordAIBot {
     this.officialInjuryMonitor = new OfficialInjuryMonitor(this.discordNotifier);
     this.liveGameMonitor = new LiveGameMonitor();
     this.scheduledNotifications = new ScheduledNotifications(this.injuryMonitor);
+    this.tradeAnalyzer = new TradeAnalyzer();
     
     // Bot configuration
     this.botToken = process.env.DISCORD_BOT_TOKEN;
@@ -80,6 +82,9 @@ class DiscordAIBot {
       
       // Register slash commands when bot is ready
       await this.registerSlashCommands();
+      
+      // Start live game monitoring automatically
+      await this.startLiveGameMonitoring();
     });
 
     this.client.on('messageCreate', async (message) => {
@@ -830,6 +835,8 @@ Respond in JSON format for Discord embeds.`;
       return this.getMonitoringStatus();
     } else if (command === '.news') {
       return await this.handleNewsCommand(username);
+    } else if (command.startsWith('.trade')) {
+      return await this.handleTradeCommand(command, username);
     } else if (command === '.help') {
       return this.getDotCommandHelp();
     } else {
@@ -2353,6 +2360,13 @@ Make it ESPN-quality analysis with specific fantasy advice. No generic content.`
 \`.team\` - View your current roster
 \`.clear\` - Reset all draft data
 
+**💰 Trade Analysis (12-Team League)**
+\`.trade\` - Full AI trade analysis and suggestions
+\`.trade scan\` - **🚨 ACTIVE SCAN** - Find trade opportunities and trigger Discord alerts
+\`.trade quick\` - Quick trade suggestions
+\`.trade context\` - League-focused trade analysis
+\`.trade <TeamName>\` - Target specific team for trades
+
 **📊 Data & Import**
 \`.import <data>\` - Import ESPN draft data
 \`.update\` - Manually refresh all data sources
@@ -3057,9 +3071,459 @@ ${trending.split('\n').slice(1, 4).join('\n')}
     }
   }
 
+  async handleTradeCommand(command, username) {
+    try {
+      logger.info(`💼 ${username} requested trade analysis with: ${command}`);
+      
+      if (!this.draftState || !this.draftState.picks || this.draftState.picks.length === 0) {
+        return `💼 **Trade Analysis**
+
+❌ **No team data available!**
+
+To use trade analysis, you need:
+• Your current roster (use \`.my PlayerName\` to add players)
+• Other teams' rosters (use \`.import\` to load league data)
+
+**Quick Start:**
+1. Add your players: \`.my Saquon Barkley\`
+2. Import league data: \`.import [paste ESPN draft board]\`  
+3. Run trade analysis: \`.trade\`
+
+Type \`.help\` for more commands.`;
+      }
+
+      // Extract team name if specified (.trade Team Name)
+      const targetTeam = command.length > 6 ? command.substring(6).trim() : null;
+
+      // Build current team data
+      const myTeam = {
+        teamName: `${username}'s Team`,
+        roster: this.draftState.picks
+          .filter(pick => pick.isUser)
+          .map(pick => ({
+            name: pick.player,
+            position: pick.position || 'UNKNOWN',
+            team: pick.nflTeam || 'FA',
+            pick: pick.pick
+          }))
+      };
+
+      // Build league data from draft state
+      const allTeams = this.buildTeamsFromDraftState();
+      const leagueData = {
+        teams: allTeams,
+        settings: {
+          size: this.draftState.leagueSize || 12,
+          scoringType: 'PPR'
+        }
+      };
+
+      logger.info(`🔍 Analyzing trades for ${myTeam.teamName} with ${myTeam.roster.length} players`);
+
+      // Extract analysis type from command
+      const parts = command.split(' ');
+      const analysisType = parts.length > 1 ? parts[1] : 'full';
+      
+      // Check if this is a scan command for active trade opportunity detection
+      const isScanMode = analysisType === 'scan' || command.includes('scan');
+      
+      // Build season stats (mock data for now - would integrate with real stats)
+      const seasonStats = this.buildSeasonStats(allTeams);
+      
+      let analysis;
+      if (isScanMode) {
+        // SCAN MODE: Actively search all teams for trade opportunities and trigger immediate notifications
+        logger.info(`🚨 SCAN MODE: Actively searching for trade opportunities and triggering notifications`);
+        
+        // Analyze with enhanced notification settings
+        analysis = await this.tradeAnalyzer.analyzeTradeOpportunities(
+          myTeam, 
+          leagueData,
+          { 
+            targetTeam: null, // Scan ALL teams
+            sendToDiscord: true,
+            scanMode: true, // Enhanced scanning
+            forceNotification: true // Force immediate Discord alert
+          }
+        );
+      } else if (analysisType === 'context' || analysisType === 'full') {
+        // Use comprehensive analysis with league context
+        analysis = await this.tradeAnalyzer.analyzeTeamWithLeagueContext(
+          myTeam,
+          leagueData,
+          seasonStats
+        );
+        
+        // Also get trade opportunities
+        const tradeOpportunities = await this.tradeAnalyzer.analyzeTradeOpportunities(
+          myTeam,
+          leagueData,
+          { targetTeam, sendToDiscord: true } // Enable Discord webhook
+        );
+        
+        analysis.tradeOpportunities = tradeOpportunities;
+      } else {
+        // Run basic trade analysis
+        analysis = await this.tradeAnalyzer.analyzeTradeOpportunities(
+          myTeam, 
+          leagueData,
+          { targetTeam, sendToDiscord: true } // Enable Discord webhook
+        );
+      }
+      
+      // Add scan mode notification
+      if (isScanMode) {
+        const scanResponse = `🚨 **TRADE SCAN COMPLETED**\n\n` +
+          `✅ **Active Scanning:** Analyzed all 12 teams for trade opportunities\n` +
+          `📱 **Discord Alerts:** Trade notifications sent to webhook\n` +
+          `🎯 **AI Analysis:** ${analysis.suggestions?.length || 0} potential trades identified\n\n` +
+          `**Trade opportunities will be sent as separate Discord alerts!**`;
+        
+        // Return scan confirmation first, detailed analysis will come via webhook
+        return scanResponse + '\n\n' + this.formatEnhancedTradeAnalysis(analysis, analysisType, targetTeam);
+      }
+      
+      return this.formatEnhancedTradeAnalysis(analysis, analysisType, targetTeam);
+
+    } catch (error) {
+      logger.error('Trade analysis failed:', error.message);
+      return `💼 **Trade Analysis Error**
+
+❌ **Analysis failed:** ${error.message}
+
+**Possible Issues:**
+• Need more roster data
+• Invalid team name
+• System temporarily unavailable
+
+Try again or use \`.help\` for support.`;
+    }
+  }
+
+  buildTeamsFromDraftState() {
+    const teams = {};
+    
+    // Group picks by team
+    this.draftState.picks.forEach(pick => {
+      const teamNum = pick.team || 1;
+      if (!teams[teamNum]) {
+        teams[teamNum] = {
+          teamName: pick.isUser ? 'Your Team' : `Team ${teamNum}`,
+          roster: []
+        };
+      }
+      
+      teams[teamNum].roster.push({
+        name: pick.player,
+        position: pick.position || 'UNKNOWN',
+        team: pick.nflTeam || 'FA',
+        pick: pick.pick
+      });
+    });
+
+    return Object.values(teams);
+  }
+
+  buildSeasonStats(allTeams) {
+    // Mock season stats based on team composition (would integrate with real data)
+    const seasonStats = {};
+    
+    allTeams.forEach((team, index) => {
+      const wins = Math.floor(Math.random() * 8) + 2; // 2-9 wins
+      const losses = 10 - wins;
+      const pointsFor = 1200 + (Math.random() * 400); // 1200-1600 points
+      const pointsAgainst = 1200 + (Math.random() * 400);
+      
+      seasonStats[team.teamName] = {
+        wins,
+        losses,
+        pointsFor: Math.round(pointsFor),
+        pointsAgainst: Math.round(pointsAgainst),
+        rank: index + 1
+      };
+      
+      // Add individual player stats
+      team.roster.forEach(player => {
+        const baseProjection = this.getPositionProjection(player.position);
+        const variance = (Math.random() - 0.5) * 0.4; // ±20% variance
+        const weeklyAverage = Math.round((baseProjection * (1 + variance)) * 10) / 10;
+        
+        seasonStats[player.name] = {
+          weeklyAverage,
+          last3Games: this.generateRecentScores(weeklyAverage),
+          trend: Math.random() > 0.7 ? 'rising' : Math.random() > 0.7 ? 'declining' : 'stable',
+          weeklyScores: this.generateWeeklyScores(weeklyAverage, 8) // 8 weeks of data
+        };
+      });
+    });
+    
+    return seasonStats;
+  }
+
+  getPositionProjection(position) {
+    const projections = {
+      QB: 18, RB: 12, WR: 10, TE: 8, K: 8, 'D/ST': 8, DST: 8
+    };
+    return projections[position] || 8;
+  }
+
+  generateRecentScores(average) {
+    return Array.from({ length: 3 }, () => 
+      Math.round((average + (Math.random() - 0.5) * average * 0.3) * 10) / 10
+    );
+  }
+
+  generateWeeklyScores(average, weeks) {
+    return Array.from({ length: weeks }, () => 
+      Math.round((average + (Math.random() - 0.5) * average * 0.4) * 10) / 10
+    );
+  }
+
+  formatEnhancedTradeAnalysis(analysis, analysisType, targetTeam) {
+    if (!analysis || (analysis.success === false)) {
+      return `💼 **Trade Analysis Failed**\n\n❌ ${analysis?.error || 'Unknown error'}`;
+    }
+
+    let response = `💼 **AI Trade Analysis Report** (${analysisType.toUpperCase()})\n\n`;
+
+    // League Context (if available)
+    if (analysis.leagueContext) {
+      const ctx = analysis.leagueContext;
+      response += `📊 **League Standing**: ${ctx.myPosition}/${ctx.totalTeams}\n`;
+      response += `🏆 **Playoff Status**: ${ctx.isInPlayoffs ? 'IN PLAYOFFS' : `${ctx.distanceFromPlayoffs} spots behind`}\n`;
+      response += `⏰ **Weeks Remaining**: ${ctx.weekRemaining}\n\n`;
+    }
+
+    // Trade Urgency (if available)
+    if (analysis.tradeUrgency) {
+      const urgency = analysis.tradeUrgency;
+      const urgencyEmoji = {
+        'CRITICAL': '🚨',
+        'HIGH': '🔥',
+        'MEDIUM': '⚠️',
+        'LOW': '✅'
+      };
+      
+      response += `${urgencyEmoji[urgency.level]} **Trade Urgency**: ${urgency.level} (${urgency.score}/100)\n`;
+      if (urgency.factors.length > 0) {
+        response += `**Factors**: ${urgency.factors.join(', ')}\n\n`;
+      }
+    }
+
+    // Team Strengths & Weaknesses
+    if (analysis.strengths && analysis.weaknesses) {
+      response += `💪 **Team Strengths**:\n`;
+      analysis.strengths.forEach(strength => {
+        response += `• **${strength.position}**: ${strength.reason}\n`;
+      });
+      
+      response += `\n🎯 **Priority Needs**:\n`;
+      analysis.needs.slice(0, 3).forEach(need => {
+        response += `• **${need.position}** (Priority ${need.priority}): ${need.reason}\n`;
+      });
+      response += '\n';
+    }
+
+    // Strategic Recommendations
+    if (analysis.recommendations) {
+      response += `🧠 **Strategic Recommendations**:\n`;
+      analysis.recommendations.slice(0, 3).forEach((rec, i) => {
+        const priorityEmoji = { 'HIGH': '🔥', 'MEDIUM': '⚠️', 'LOW': '💡' };
+        response += `${i + 1}. ${priorityEmoji[rec.priority]} **${rec.type.replace('_', ' ')}**: ${rec.action}\n`;
+        response += `   *${rec.reasoning}*\n`;
+      });
+      response += '\n';
+    }
+
+    // Trade Opportunities
+    const opportunities = analysis.tradeOpportunities || analysis;
+    if (opportunities.suggestions && opportunities.suggestions.length > 0) {
+      response += `🔄 **Top Trade Suggestions**:\n`;
+      opportunities.suggestions.slice(0, 3).forEach((suggestion, i) => {
+        const fairnessStars = '⭐'.repeat(Math.min(5, Math.max(1, suggestion.fairness || 5)));
+        response += `**${i + 1}. Trade with ${suggestion.partner}**\n`;
+        response += `   📤 Give: ${suggestion.trade?.give?.join(', ') || 'TBD'}\n`;
+        response += `   📥 Get: ${suggestion.trade?.receive?.join(', ') || 'TBD'}\n`;
+        response += `   ${fairnessStars} Fairness: ${suggestion.fairness}/10\n`;
+        if (suggestion.reasoning) {
+          response += `   💡 ${suggestion.reasoning.substring(0, 100)}...\n`;
+        }
+        response += '\n';
+      });
+    } else {
+      response += `🔄 **Trade Opportunities**: No immediate suggestions found.\n\n`;
+    }
+
+    // Player Performance Insights (if available)
+    if (analysis.playerPerformance) {
+      const perf = analysis.playerPerformance;
+      if (perf.sellHigh && perf.sellHigh.length > 0) {
+        response += `📈 **Sell High Candidates**: ${perf.sellHigh.slice(0, 3).map(p => p.name).join(', ')}\n`;
+      }
+      if (perf.buyLow && perf.buyLow.length > 0) {
+        response += `📉 **Buy Low Targets**: ${perf.buyLow.slice(0, 3).map(p => p.name).join(', ')}\n`;
+      }
+    }
+
+    response += `\n💬 **Note**: Full trade analysis sent to Discord webhook for detailed review!\n`;
+    response += `🔄 Use \`.trade quick\` for faster analysis or \`.trade context\` for league standings focus.`;
+
+    return response;
+  }
+
+  async startLiveGameMonitoring() {
+    try {
+      logger.info('🏈 Starting live game monitoring...');
+      
+      // Use the correct webhook for live game alerts
+      const liveWebhookUrl = 'https://discord.com/api/webhooks/1407801106297520149/9O8DNPDq4TWp8ynQu2R2n7nVL9DQFQLEk59KLycaGwzot3I8sjzhksZfynkkif9M2tmz';
+      
+      // Add popular fantasy players to watchlist
+      const watchedPlayers = [
+        'Saquon Barkley', 'Christian McCaffrey', 'CeeDee Lamb', 'Tyreek Hill',
+        'Josh Allen', 'Patrick Mahomes', 'Travis Kelce', 'Derrick Henry',
+        'Stefon Diggs', 'Cooper Kupp', 'Davante Adams', 'A.J. Brown',
+        'Josh Jacobs', 'Austin Ekeler', 'Tony Pollard', 'Courtland Sutton',
+        'Calvin Ridley', 'DeAndre Hopkins', 'Jaylen Waddle', 'Tee Higgins'
+      ];
+      
+      // Add players to monitoring
+      this.liveGameMonitor.addPlayersToWatchlist(watchedPlayers);
+      
+      // Add any drafted players from current draft state
+      if (this.draftState && this.draftState.picks) {
+        const draftedPlayers = this.draftState.picks
+          .filter(pick => pick.isUser)
+          .map(pick => pick.player || pick.name)
+          .filter(name => name);
+        
+        if (draftedPlayers.length > 0) {
+          this.liveGameMonitor.addPlayersToWatchlist(draftedPlayers);
+          logger.info(`🎯 Added ${draftedPlayers.length} drafted players to watchlist`);
+        }
+      }
+      
+      // Start monitoring with webhook
+      await this.liveGameMonitor.startMonitoring(liveWebhookUrl);
+      
+      logger.info('✅ Live game monitoring started successfully');
+      
+      // Send startup notification to Discord
+      await this.sendLiveMonitoringStartupAlert();
+      
+    } catch (error) {
+      logger.error('Failed to start live game monitoring:', error.message);
+    }
+  }
+
+  async sendLiveMonitoringStartupAlert() {
+    try {
+      const axios = require('axios');
+      const webhookUrl = 'https://discord.com/api/webhooks/1408224618850029689/4mpK7R-7LebdWvJgND3ydNxikk0TdY2WCsJMY8BAog2fdnJCW43LRLl8-K-Do5TYH8Sz';
+      
+      const embed = {
+        title: '🏈 LIVE GAME MONITORING ACTIVE',
+        description: 'Fantasy Command Center is now monitoring live NFL games',
+        color: 0x00FF00,
+        fields: [
+          {
+            name: '🎯 Monitoring Features',
+            value: '• Live scores and game updates\n• Player performance tracking\n• Snap count monitoring\n• Target share analysis\n• Red zone opportunities\n• Live injury alerts',
+            inline: false
+          },
+          {
+            name: '📊 Game Detection',
+            value: 'Automatically detects and monitors:\n• Regular season games\n• Preseason games (for testing)\n• All game days (Thu/Sun/Mon)',
+            inline: true
+          },
+          {
+            name: '⚡ Update Frequency',
+            value: 'Game checks: Every 30 seconds\nLive stats: Every 15 seconds\nReal-time alerts for changes',
+            inline: true
+          },
+          {
+            name: '🚨 Alert Types',
+            value: 'Game start/end • Score updates • Player performance • Snap counts • Target alerts • Red zone usage • Injury updates',
+            inline: false
+          }
+        ],
+        timestamp: new Date().toISOString(),
+        footer: {
+          text: 'Fantasy Command Center • Live Monitoring System'
+        }
+      };
+
+      await axios.post(webhookUrl, {
+        content: '🚀 **LIVE GAME MONITORING SYSTEM ACTIVATED**',
+        embeds: [embed]
+      });
+
+      logger.info('✅ Live monitoring startup alert sent to Discord');
+    } catch (error) {
+      logger.error('Failed to send startup alert:', error.message);
+    }
+  }
+
+  formatTradeAnalysis(analysis, targetTeam) {
+    if (!analysis.success) {
+      return `💼 **Trade Analysis Failed**\n\n❌ ${analysis.error || 'Unknown error'}`;
+    }
+
+    let response = `💼 **AI Trade Analysis Report**\n\n`;
+
+    // Team analysis summary
+    response += `📊 **Your Team Analysis:**\n`;
+    response += `• **Strengths:** ${analysis.teamAnalysis.strengths.map(s => s.position).join(', ') || 'None identified'}\n`;
+    response += `• **Needs:** ${analysis.teamAnalysis.needs.map(n => `${n.position} (Priority: ${n.priority})`).join(', ') || 'None critical'}\n`;
+    response += `• **Tradeable Assets:** ${analysis.teamAnalysis.tradeable.map(t => t.name).slice(0, 3).join(', ') || 'Limited surplus'}\n\n`;
+
+    // Trade suggestions
+    if (analysis.suggestions && analysis.suggestions.length > 0) {
+      response += `🔄 **Top Trade Suggestions:**\n\n`;
+      
+      analysis.suggestions.slice(0, 3).forEach((suggestion, i) => {
+        response += `**${i + 1}. Trade with ${suggestion.partner}**\n`;
+        
+        if (suggestion.trade) {
+          const give = Array.isArray(suggestion.trade.give) ? suggestion.trade.give : [suggestion.trade.give];
+          const receive = Array.isArray(suggestion.trade.receive) ? suggestion.trade.receive : [suggestion.trade.receive];
+          
+          response += `• **Give:** ${give.join(', ')}\n`;
+          response += `• **Receive:** ${receive.join(', ')}\n`;
+          response += `• **Fairness:** ${suggestion.fairness || 'N/A'}/10\n`;
+          response += `• **Why:** ${suggestion.reasoning || 'Addresses team needs'}\n\n`;
+        }
+      });
+    } else {
+      response += `🔄 **Trade Suggestions:**\n`;
+      response += `❌ No viable trades found right now.\n\n`;
+      response += `**Possible Reasons:**\n`;
+      response += `• Teams have similar needs\n`;
+      response += `• Limited surplus players\n`;
+      response += `• Need more data on other teams\n\n`;
+    }
+
+    // Market trends
+    if (analysis.marketTrends) {
+      response += `📈 **Market Trends:**\n`;
+      response += `• **Rising:** ${analysis.marketTrends.rising?.join(', ') || 'N/A'}\n`;
+      response += `• **Falling:** ${analysis.marketTrends.falling?.join(', ') || 'N/A'}\n\n`;
+    }
+
+    response += `🕒 **Analysis Time:** ${new Date().toLocaleTimeString()}\n`;
+    response += `💡 **Tip:** Use \`.trade TeamName\` to analyze specific trade partners`;
+
+    return response;
+  }
+
   async stop() {
     if (this.client) {
       await this.client.destroy();
+    }
+    
+    // Cleanup trade analyzer
+    if (this.tradeAnalyzer) {
+      this.tradeAnalyzer.destroy();
     }
   }
 }

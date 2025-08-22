@@ -81,7 +81,21 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('update')
-    .setDescription('Manually trigger data updates (injuries, news, etc.)')
+    .setDescription('Manually trigger data updates (injuries, news, etc.)'),
+
+  // Trade analysis command
+  new SlashCommandBuilder()
+    .setName('trade')
+    .setDescription('Get AI-powered trade analysis and suggestions')
+    .addStringOption(option =>
+      option.setName('analysis_type')
+        .setDescription('Type of trade analysis to perform')
+        .setRequired(false)
+        .addChoices(
+          { name: 'Full Analysis', value: 'full' },
+          { name: 'Quick Suggestions', value: 'quick' },
+          { name: 'League Context', value: 'context' }
+        ))
 ];
 
 module.exports = {
@@ -167,6 +181,13 @@ module.exports = {
           await interaction.deferReply();
           const trendingResult = await discordBot.handleTrendingCommand();
           await interaction.editReply(trendingResult);
+          break;
+
+        case 'trade':
+          await interaction.deferReply();
+          const analysisType = options.getString('analysis_type') || 'full';
+          const tradeResult = await discordBot.handleTradeCommand(`.trade ${analysisType}`, username);
+          await interaction.editReply(tradeResult);
           break;
 
         case 'update':

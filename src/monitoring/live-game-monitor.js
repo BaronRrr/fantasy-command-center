@@ -1,6 +1,7 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
 const winston = require('winston');
+const NFLSchedule = require('../utils/nfl-schedule');
 
 const logger = winston.createLogger({
   level: 'info',
@@ -24,12 +25,13 @@ class LiveGameMonitor {
     this.lastTargetShares = new Map();
     this.gameAlerts = new Map();
     this.liveWebhookUrl = null;
+    this.nflSchedule = new NFLSchedule();
     
     // Thresholds for alerts (reduced for preseason testing)
-    this.SNAP_COUNT_THRESHOLD = 10; // Alert if snap count changes by 10+ (reduced frequency)
-    this.TARGET_THRESHOLD = 3; // Alert for 3+ targets (reduced frequency)
+    this.SNAP_COUNT_THRESHOLD = 5; // Alert if snap count changes by 5+ (more sensitive for preseason)
+    this.TARGET_THRESHOLD = 2; // Alert for 2+ targets (more sensitive)
     this.RED_ZONE_THRESHOLD = 1; // Alert on any red zone usage
-    this.PRESEASON_MODE = true; // Light monitoring for preseason
+    this.PRESEASON_MODE = true; // Enhanced monitoring for preseason
     
     // Game status tracking
     this.GAME_STATES = {
@@ -51,19 +53,8 @@ class LiveGameMonitor {
     this.liveWebhookUrl = liveWebhookUrl;
     logger.info('🏈 Starting live game monitoring...');
     
-    // Check for active NFL games every 30 seconds during game days
-    setInterval(async () => {
-      if (this.isGameDay()) {
-        await this.checkActiveGames();
-      }
-    }, 30 * 1000); // 30 seconds
-    
-    // Update live stats every 15 seconds during active games
-    setInterval(async () => {
-      if (this.activeGames.size > 0) {
-        await this.updateLiveStats();
-      }
-    }, 15 * 1000); // 15 seconds
+    // Smart monitoring with schedule-based frequency
+    await this.startSmartMonitoring();
     
     logger.info('✅ Live game monitoring active');
   }
@@ -573,6 +564,126 @@ class LiveGameMonitor {
     await this.sendAlert(embed, `🚨 **RED ZONE ALERT** - ${player} scoring opportunity`);
   }
 
+  // Send game end alert
+  async sendGameEndAlert(gameInfo) {
+    try {
+      // Get final score by checking current API
+      const response = await axios.get('https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard', {
+        timeout: 10000,
+        headers: {
+          'User-Agent': 'Fantasy-Command-Center/1.0.0'
+        }
+      });
+
+      const games = response.data.events || [];
+      let finalScore = null;
+
+      // Find the specific game for final score
+      for (const game of games) {
+        if (game.id === gameInfo.id) {
+          const homeTeam = game.competitions[0]?.competitors?.find(c => c.homeAway === 'home')?.team?.abbreviation || gameInfo.homeTeam;
+          const awayTeam = game.competitions[0]?.competitors?.find(c => c.homeAway === 'away')?.team?.abbreviation || gameInfo.awayTeam;
+          const finalHomeScore = game.competitions[0]?.competitors?.find(c => c.homeAway === 'home')?.score || gameInfo.homeScore;
+          const finalAwayScore = game.competitions[0]?.competitors?.find(c => c.homeAway === 'away')?.score || gameInfo.awayScore;
+          
+          finalScore = {
+            homeTeam,
+            awayTeam,
+            finalHomeScore,
+            finalAwayScore
+          };
+          break;
+        }
+      }
+
+      // Use final score if found, otherwise use last known score
+      const displayScore = finalScore || {
+        homeTeam: gameInfo.homeTeam,
+        awayTeam: gameInfo.awayTeam,
+        finalHomeScore: gameInfo.homeScore,
+        finalAwayScore: gameInfo.awayScore
+      };
+
+      const embed = {
+        title: '🏁 GAME FINAL',
+        description: `**${displayScore.awayTeam} @ ${displayScore.homeTeam}**`,
+        color: 0x00AA00,
+        fields: [
+          {
+            name: '🏆 Final Score',
+            value: `**${displayScore.awayTeam}: ${displayScore.finalAwayScore}**\n**${displayScore.homeTeam}: ${displayScore.finalHomeScore}**`,
+            inline: true
+          },
+          {
+            name: '⏰ Game Completed',
+            value: new Date().toLocaleTimeString('en-US', { 
+              hour: 'numeric', 
+              minute: '2-digit',
+              timeZoneName: 'short'
+            }),
+            inline: true
+          },
+          {
+            name: '📊 Game Summary',
+            value: this.getGameSummary(displayScore),
+            inline: false
+          }
+        ],
+        timestamp: new Date().toISOString(),
+        footer: {
+          text: 'Live Game Monitor • Game Complete'
+        }
+      };
+
+      await this.sendAlert(embed, `🏁 **GAME FINAL** - ${displayScore.awayTeam} @ ${displayScore.homeTeam}`);
+      logger.info(`🏁 Game end alert sent for ${displayScore.awayTeam} @ ${displayScore.homeTeam}`);
+
+    } catch (error) {
+      logger.error('Failed to send game end alert:', error.message);
+      
+      // Fallback alert with basic info
+      const basicEmbed = {
+        title: '🏁 GAME FINAL',
+        description: `**${gameInfo.awayTeam} @ ${gameInfo.homeTeam}**`,
+        color: 0x00AA00,
+        fields: [
+          {
+            name: '🏆 Final Score',
+            value: `${gameInfo.awayTeam}: ${gameInfo.awayScore} - ${gameInfo.homeTeam}: ${gameInfo.homeScore}`,
+            inline: false
+          }
+        ],
+        timestamp: new Date().toISOString(),
+        footer: {
+          text: 'Live Game Monitor • Game Complete'
+        }
+      };
+
+      await this.sendAlert(basicEmbed, `🏁 **GAME FINAL** - ${gameInfo.awayTeam} @ ${gameInfo.homeTeam}`);
+    }
+  }
+
+  // Get game summary text
+  getGameSummary(scoreInfo) {
+    const awayScore = parseInt(scoreInfo.finalAwayScore);
+    const homeScore = parseInt(scoreInfo.finalHomeScore);
+    const margin = Math.abs(awayScore - homeScore);
+    
+    if (margin === 0) {
+      return 'Tied game!';
+    } else if (margin <= 3) {
+      return 'Close game decided by a field goal or less';
+    } else if (margin <= 7) {
+      return 'One possession game';
+    } else if (margin <= 14) {
+      return 'Two possession game';
+    } else {
+      return awayScore > homeScore ? 
+        `${scoreInfo.awayTeam} dominated with a ${margin}-point victory` :
+        `${scoreInfo.homeTeam} dominated with a ${margin}-point victory`;
+    }
+  }
+
   // Send live injury alert
   async sendLiveInjuryAlert(player, injuryText, gameInfo) {
     const embed = {
@@ -635,11 +746,233 @@ class LiveGameMonitor {
     };
   }
 
+  // Periodic status updates removed - replaced with event-only alerts
+
+  // Enhanced game checking with immediate notifications
+  async checkActiveGames() {
+    try {
+      // ESPN NFL Scoreboard API
+      const response = await axios.get('https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard', {
+        timeout: 15000, // Longer timeout
+        headers: {
+          'User-Agent': 'Fantasy-Command-Center/1.0.0',
+          'Accept': 'application/json'
+        }
+      });
+
+      const games = response.data.events || [];
+      const currentActiveGames = new Map();
+      let newGamesDetected = 0;
+
+      logger.info(`🔍 Checking ${games.length} NFL games...`);
+
+      for (const game of games) {
+        const gameId = game.id;
+        const status = game.status?.type?.name || 'unknown';
+        const statusId = game.status?.type?.id;
+        
+        // More inclusive live game detection for preseason
+        const isLive = [
+          'STATUS_IN_PROGRESS', 
+          'STATUS_HALFTIME',
+          'STATUS_END_OF_PERIOD',
+          'STATUS_DELAYED'
+        ].includes(statusId) || status.toLowerCase().includes('live') || status.toLowerCase().includes('progress');
+        
+        // Also consider recently completed games for final stats
+        const isRecentlyCompleted = statusId === 'STATUS_FINAL' && this.activeGames.has(gameId);
+        
+        if (isLive || isRecentlyCompleted) {
+          const gameInfo = {
+            id: gameId,
+            homeTeam: game.competitions[0]?.competitors?.find(c => c.homeAway === 'home')?.team?.abbreviation || 'HOME',
+            awayTeam: game.competitions[0]?.competitors?.find(c => c.homeAway === 'away')?.team?.abbreviation || 'AWAY',
+            quarter: game.status?.period || 1,
+            clock: game.status?.displayClock || '',
+            homeScore: game.competitions[0]?.competitors?.find(c => c.homeAway === 'home')?.score || '0',
+            awayScore: game.competitions[0]?.competitors?.find(c => c.homeAway === 'away')?.score || '0',
+            status: status,
+            statusId: statusId,
+            lastUpdated: new Date().toISOString()
+          };
+          
+          currentActiveGames.set(gameId, gameInfo);
+          
+          // Check if this is a newly active game
+          if (!this.activeGames.has(gameId)) {
+            await this.sendGameStartAlert(gameInfo);
+            newGamesDetected++;
+          } else {
+            // Check for score/quarter changes
+            const previousInfo = this.activeGames.get(gameId);
+            await this.sendGameUpdate(gameInfo, previousInfo);
+          }
+        }
+      }
+
+      // Log detection results
+      if (newGamesDetected > 0) {
+        logger.info(`🚨 Detected ${newGamesDetected} new live games!`);
+      }
+      
+      if (currentActiveGames.size !== this.activeGames.size) {
+        logger.info(`📊 Live games changed: ${this.activeGames.size} → ${currentActiveGames.size}`);
+      }
+
+      // Check for games that ended (were active but no longer are)
+      const endedGames = [];
+      for (const [gameId, gameInfo] of this.activeGames) {
+        if (!currentActiveGames.has(gameId)) {
+          endedGames.push(gameInfo);
+        }
+      }
+
+      // Send final alerts for ended games
+      for (const endedGame of endedGames) {
+        await this.sendGameEndAlert(endedGame);
+      }
+
+      // Update active games
+      this.activeGames = currentActiveGames;
+      
+      if (currentActiveGames.size > 0) {
+        logger.info(`🏈 Currently monitoring ${currentActiveGames.size} live games`);
+      }
+
+    } catch (error) {
+      logger.error('Error checking active games:', error.message);
+      
+      // Send error alert if webhook is configured
+      if (this.liveWebhookUrl) {
+        await this.sendAlert({
+          title: '⚠️ Game Check Error',
+          description: `Failed to check for active games: ${error.message}`,
+          color: 0xFF9900,
+          timestamp: new Date().toISOString()
+        }, '⚠️ **MONITORING ERROR**');
+      }
+    }
+  }
+
+  // Start smart monitoring with dynamic frequencies
+  async startSmartMonitoring() {
+    const decision = await this.nflSchedule.shouldMonitorNow();
+    
+    if (!decision.monitor) {
+      logger.info(`🛑 No monitoring needed: ${decision.reason}`);
+      // Check again in 1 hour
+      this.gameCheckInterval = setInterval(async () => {
+        await this.checkIfShouldStartMonitoring();
+      }, 60 * 60 * 1000); // 1 hour
+      return;
+    }
+
+    logger.info(`✅ Smart monitoring active: ${decision.reason}`);
+    
+    // Set frequency based on decision
+    let checkFrequency, statsFrequency;
+    
+    switch (decision.frequency) {
+      case 'high': // Live games likely
+        checkFrequency = 2 * 60 * 1000; // 2 minutes (30 calls/hour)
+        statsFrequency = 1 * 60 * 1000; // 1 minute for stats
+        break;
+      case 'medium': // Game day but no live games yet  
+        checkFrequency = 5 * 60 * 1000; // 5 minutes (12 calls/hour)
+        statsFrequency = 2 * 60 * 1000; // 2 minutes for stats
+        break;
+      case 'low': // Tomorrow prep
+        checkFrequency = 15 * 60 * 1000; // 15 minutes (4 calls/hour)
+        statsFrequency = 5 * 60 * 1000; // 5 minutes for stats
+        break;
+      default:
+        checkFrequency = 60 * 60 * 1000; // 1 hour (1 call/hour)
+        statsFrequency = 10 * 60 * 1000; // 10 minutes
+    }
+
+    // Game detection
+    this.gameCheckInterval = setInterval(async () => {
+      await this.smartGameCheck();
+    }, checkFrequency);
+    
+    // Live stats (only when games active)
+    this.statsUpdateInterval = setInterval(async () => {
+      if (this.activeGames.size > 0) {
+        await this.updateLiveStats();
+      }
+    }, statsFrequency);
+    
+    // Removed automatic status updates - only send event-based alerts
+
+    logger.info(`⚡ Monitoring frequency: Game checks every ${checkFrequency/60000} minutes`);
+  }
+
+  // Smart game checking with frequency adjustment
+  async smartGameCheck() {
+    // Re-evaluate if we should still be monitoring
+    const decision = await this.nflSchedule.shouldMonitorNow();
+    
+    if (!decision.monitor && this.activeGames.size === 0) {
+      logger.info('🛑 Stopping monitoring - no games scheduled');
+      this.pauseMonitoring();
+      return;
+    }
+
+    // If live games detected, increase frequency temporarily
+    await this.checkActiveGames();
+    
+    if (this.activeGames.size > 0) {
+      this.boostMonitoringForLiveGames();
+    }
+  }
+
+  // Boost monitoring when live games detected
+  boostMonitoringForLiveGames() {
+    if (this.gameCheckInterval) {
+      clearInterval(this.gameCheckInterval);
+      // Boost to 1 minute checks when games are live
+      this.gameCheckInterval = setInterval(async () => {
+        await this.checkActiveGames();
+      }, 60 * 1000); // 1 minute during live games
+      
+      logger.info('🔥 Boosted monitoring frequency - live games detected');
+    }
+  }
+
+  // Pause monitoring until next scheduled check
+  pauseMonitoring() {
+    if (this.gameCheckInterval) clearInterval(this.gameCheckInterval);
+    if (this.statsUpdateInterval) clearInterval(this.statsUpdateInterval);
+    
+    // Check again in 1 hour
+    this.gameCheckInterval = setInterval(async () => {
+      await this.checkIfShouldStartMonitoring();
+    }, 60 * 60 * 1000);
+    
+    logger.info('⏸️ Monitoring paused - will check again in 1 hour');
+  }
+
+  // Check if monitoring should resume
+  async checkIfShouldStartMonitoring() {
+    const decision = await this.nflSchedule.shouldMonitorNow();
+    if (decision.monitor) {
+      logger.info('🔄 Resuming monitoring - games detected');
+      await this.startSmartMonitoring();
+    }
+  }
+
+  // Status updates removed - only event-based alerts now
+
   // Stop monitoring
   stopMonitoring() {
     this.isMonitoring = false;
     this.activeGames.clear();
     this.playerStats.clear();
+    
+    // Clear intervals
+    if (this.gameCheckInterval) clearInterval(this.gameCheckInterval);
+    if (this.statsUpdateInterval) clearInterval(this.statsUpdateInterval);
+    
     logger.info('⏹️ Live game monitoring stopped');
   }
 }
