@@ -5,7 +5,7 @@
 const createLogger = require('../utils/logger');
 const { Validator, ValidationError } = require('../utils/validation');
 const ImprovedClaudeAI = require('../api/improved-claude-ai');
-const ESPN_2025_DRAFT_GUIDE = require('../data/espn-2025-draft-guide');
+const ESPN_2025_DRAFT_GUIDE = require('../../data/espn-2025-draft-guide');
 const TradeWebhook = require('./trade-webhook');
 
 const logger = createLogger();
