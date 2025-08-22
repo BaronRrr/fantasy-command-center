@@ -834,6 +834,7 @@ Respond in JSON format for Discord embeds.`;
     } else if (command === '.monitor') {
       return this.getMonitoringStatus();
     } else if (command === '.news') {
+      console.log(`🔍 DEBUG: .news command detected in main handler for ${username}`);
       return await this.handleNewsCommand(username);
     } else if (command.startsWith('.trade')) {
       return await this.handleTradeCommand(command, username);
@@ -1949,6 +1950,7 @@ Total response must be under 1500 characters. Use Discord markdown formatting.`;
           }
         };
         
+        console.log(`📰 Attempting to send news to #newsarticles for ${username}`);
         await this.discordNotifier.sendNewsAlert(newsEmbed);
         const confirmationMessage = `📰 **News digest sent to #newsarticles!**\n\n🔗 ${articles.length} articles from ${sources.length} sources\n⏰ Updated: ${new Date().toLocaleTimeString()}`;
         console.log(`✅ News confirmation message for ${username}: ${confirmationMessage}`);
@@ -1956,6 +1958,8 @@ Total response must be under 1500 characters. Use Discord markdown formatting.`;
       } else {
         // Fallback - show summary in current channel
         console.log(`⚠️ No Discord notifier available, sending fallback message to ${username}`);
+        console.log(`⚠️ discordNotifier exists: ${!!this.discordNotifier}`);
+        console.log(`⚠️ sendNewsAlert method exists: ${!!(this.discordNotifier?.sendNewsAlert)}`);
         return finalMessage;
       }
     } catch (error) {
@@ -2283,6 +2287,7 @@ Make it ESPN-quality analysis with specific fantasy advice. No generic content.`
       if (command === '.help') {
         return this.getDotCommandHelp();
       } else if (command === '.news') {
+        console.log(`🔍 DEBUG: .news command detected for ${username}`);
         return await this.handleNewsCommand(username);
       } else if (command.startsWith('.my ')) {
         const playerName = content.substring(4).trim();
