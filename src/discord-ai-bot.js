@@ -1884,8 +1884,8 @@ Focus on value and team needs. Keep it concise for live draft.`;
       // Get user's drafted players for personalization
       const userPlayers = this.getUserDraftedPlayers(username);
       
-      // Fetch real fantasy football news articles
-      const articles = await this.newsArticleFetcher.fetchLatestArticles(8);
+      // Fetch real fantasy football news articles (get more for better analysis)
+      const articles = await this.newsArticleFetcher.fetchLatestArticles(15);
       
       // Filter for 2025 articles only (remove any outdated content)
       const current2025Articles = articles.filter(article => {
@@ -1908,31 +1908,43 @@ Focus on value and team needs. Keep it concise for live draft.`;
         return '📰 No recent fantasy football news found. Check back later!';
       }
 
-      // Use Claude AI to create a concise news summary that fits Discord limits
-      const newsSummaryPrompt = `Create a concise fantasy football news summary for Discord (max 1500 characters total).
+      // Use Claude AI to create detailed fantasy football breaking news analysis
+      const newsSummaryPrompt = `Analyze these fantasy football articles and create a DETAILED breaking news report for 2025 NFL season.
 
-🚨 CRITICAL: WE ARE IN 2025! This is the 2025-2026 NFL season. 
-- DO NOT mention 2024 at all
-- Focus only on 2025 season content, current week preparations, and 2025 fantasy analysis
-- If articles seem outdated, focus on what's relevant for RIGHT NOW in 2025
+CRITICAL INSTRUCTIONS:
+- This is August 2025, the 2025-2026 NFL season
+- Extract SPECIFIC player names, team changes, injuries, and fantasy implications
+- Focus on actionable fantasy insights, not generic summaries
+- Include specific player rankings, depth chart changes, and trade impacts
+- Group by categories: RB Updates, WR News, QB Situations, etc.
+- Use 🔥, 📊, 🏈, 💡 emojis for sections
 
-ARTICLES TO SUMMARIZE:
-${prioritizedArticles.slice(0, 6).map((article, i) => {
+ARTICLES TO ANALYZE:
+${prioritizedArticles.slice(0, 8).map((article, i) => {
         const relevance = article.userRelevant ? `[YOUR TEAM] ` : '';
         return `${i + 1}. ${relevance}${article.title}
    Source: ${article.source}
-   URL: ${article.url}
-   ${article.summary || article.description || 'No summary available'}`;
+   Content: ${article.summary || article.description || 'No summary available'}
+   URL: ${article.url}`;
       }).join('\n\n')}
 
-USER'S DRAFTED PLAYERS: ${userPlayers.length > 0 ? userPlayers.join(', ') : 'None yet'}
+USER'S TEAM: ${userPlayers.length > 0 ? userPlayers.join(', ') : 'No players drafted yet'}
 
-Create a Discord-formatted summary with:
-- **TOP HEADLINES** (bullet points, max 400 chars)
-- **YOUR TEAM ALERTS** (if any relevant to user's players, max 300 chars)  
-- **KEY LINKS** (3-4 most important article links with short titles, max 400 chars)
+FORMAT LIKE THIS EXAMPLE:
+## 🔥 **BREAKING FANTASY NEWS (TODAY):**
 
-Total response must be under 1500 characters. Use Discord markdown formatting.`;
+### **📊 Running Back Updates:**
+**Player Name** - Specific situation/injury/trade
+**Another Player** - Ranking change or opportunity
+
+### **🏈 Wide Receiver News:**
+**Specific updates with player names and fantasy impact**
+
+### **💡 Fantasy Action Items:**
+1. **Monitor X situation** - Specific advice
+2. **Check Y rankings** - Specific action
+
+Make it detailed, specific, and actionable. Maximum 1800 characters.`;
 
       const aiSummary = await this.claude.makeRequest([{
         role: 'user',
