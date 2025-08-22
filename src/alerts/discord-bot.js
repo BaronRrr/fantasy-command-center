@@ -77,6 +77,15 @@ class DiscordNotifier {
 
   async sendMultiChannelAlert(alert) {
     try {
+      // Validate emergency injury alerts to prevent spam
+      if (alert.type === 'EMERGENCY_INJURY') {
+        if (!alert.data?.playerName || alert.data.playerName === 'STAR PLAYER' || 
+            alert.description === 'No details available') {
+          logger.warn('Blocking incomplete emergency injury alert:', alert);
+          return { success: false, reason: 'Incomplete emergency alert blocked' };
+        }
+      }
+      
       const routes = channelRouter.routeAlert(alert.type, alert.urgency, alert.data);
       const results = [];
 
@@ -316,7 +325,12 @@ class DiscordNotifier {
         return `⚔️ **WEEK ${data?.weekNumber || 'X'} LINEUP OPTIMIZATION**\n\n🔄 **Recommended Changes:** ${data?.changeCount || 'Several'}\n📈 **Projected Gain:** +${data?.projectedPoints || '5.2'} points\n🎯 **Confidence:** ${data?.confidence || '85'}%\n\n**Start/Sit adjustments for maximum points!**`;
 
       case 'EMERGENCY_INJURY':
-        return `🚨 **EMERGENCY: ${data?.playerName || 'STAR PLAYER'} RULED OUT**\n\n⏰ **Breaking:** ${data?.hoursBeforeGames || '2'} hours before games\n🎯 **Waiver Targets:** Multiple options available\n💰 **FAAB:** ${data?.faabSuggestion || '$20-30 recommended'}\n⚡ **Claim Deadline:** ${data?.deadline || 'Soon'}`;
+        // Handle detailed FAAB strategy if provided
+        const faabDetails = data?.faabSuggestion || 'Budget $20-30 for immediate replacement';
+        const waiverTargets = data?.waiverTargets || 'Check available replacements on waiver wire';
+        const dropCandidates = data?.dropCandidates || 'Bench players with limited upside';
+        
+        return `🚨 **EMERGENCY: ${data?.playerName || 'STAR PLAYER'} RULED OUT**\n\n⏰ **Breaking:** ${data?.hoursBeforeGames || '2'} hours before games\n🎯 **Waiver Targets:** ${waiverTargets}\n💰 **FAAB:** ${faabDetails}\n\n🚨 **DROP CANDIDATES:**\n${dropCandidates}\n\n⚡ **Claim Deadline:** ${data?.deadline || 'Sunday 12:00 PM EST'}`;
 
       case 'DRAFT_COMPLETE':
         return `🏆 **DRAFT ANALYSIS: GRADE ${data?.grade || 'A-'}**\n\n🤖 **AI Followed:** ${data?.aiFollowRate || '87'}%\n💎 **Steals Found:** ${data?.steals?.length || '3'} value picks\n📈 **Championship Odds:** ${data?.championshipOdds || '23'}%\n\n**Elite draft execution!**`;
