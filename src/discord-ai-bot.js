@@ -524,16 +524,43 @@ Respond in JSON format for Discord embeds.`;
 
   // Helper methods
   extractPlayerNames(text) {
-    // Simple player name extraction - could be enhanced with a player database
-    const commonNames = [
-      'Josh Allen', 'Christian McCaffrey', 'Cooper Kupp', 'Travis Kelce',
-      'Josh Jacobs', 'DeVonta Smith', 'George Kittle', 'Tyreek Hill',
-      'Davante Adams', 'Aaron Rodgers', 'Tom Brady', 'Patrick Mahomes'
-    ];
-    
-    return commonNames.filter(name => 
-      text.toLowerCase().includes(name.toLowerCase())
-    );
+    // Load comprehensive fantasy player watchlist
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const watchlistPath = path.join(__dirname, '../data/fantasy-watchlist.json');
+      
+      let fantasyPlayers = [];
+      try {
+        const watchlistData = fs.readFileSync(watchlistPath, 'utf8');
+        fantasyPlayers = JSON.parse(watchlistData).map(player => player.name);
+      } catch (error) {
+        console.warn('Could not load fantasy watchlist, using fallback list:', error.message);
+        // Fallback to larger hardcoded list of top fantasy players
+        fantasyPlayers = [
+          'Josh Allen', 'Christian McCaffrey', 'Cooper Kupp', 'Travis Kelce',
+          'Josh Jacobs', 'DeVonta Smith', 'George Kittle', 'Tyreek Hill',
+          'Davante Adams', 'Aaron Rodgers', 'Patrick Mahomes', 'Justin Jefferson',
+          'Stefon Diggs', 'CeeDee Lamb', 'A.J. Brown', 'Saquon Barkley',
+          'Derrick Henry', 'Austin Ekeler', 'Tony Pollard', 'Breece Hall',
+          'Jonathan Taylor', 'Nick Chubb', 'Kenneth Walker III', 'Ja\'Marr Chase',
+          'DK Metcalf', 'Amon-Ra St. Brown', 'Mike Evans', 'Chris Godwin',
+          'Keenan Allen', 'Jaylen Waddle', 'Terry McLaurin', 'Calvin Ridley',
+          'Tee Higgins', 'DeAndre Hopkins', 'Courtland Sutton', 'Mark Andrews',
+          'T.J. Hockenson', 'Darren Waller', 'Kyle Pitts', 'Dallas Goedert',
+          'Lamar Jackson', 'Josh Herbert', 'Joe Burrow', 'Jalen Hurts',
+          'Tua Tagovailoa', 'Kirk Cousins', 'Dak Prescott', 'Russell Wilson'
+        ];
+      }
+      
+      return fantasyPlayers.filter(name => 
+        text.toLowerCase().includes(name.toLowerCase())
+      );
+      
+    } catch (error) {
+      console.error('Error in extractPlayerNames:', error.message);
+      return [];
+    }
   }
 
   getCurrentNFLWeek() {

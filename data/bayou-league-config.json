@@ -1,0 +1,115 @@
+{
+  "leagueName": "Bayou",
+  "leagueSize": 12,
+  "scoringType": "PPR",
+  "format": "Head to Head Points",
+  "draftSettings": {
+    "type": "Snake",
+    "timePerPick": "90 seconds",
+    "order": "Randomized One Hour Prior"
+  },
+  "roster": {
+    "totalSize": 16,
+    "starters": 9,
+    "bench": 7,
+    "ir": 1,
+    "positions": {
+      "QB": { "starters": 1, "max": 4 },
+      "RB": { "starters": 2, "max": 8 },
+      "WR": { "starters": 2, "max": 8 },
+      "TE": { "starters": 1, "max": 3 },
+      "FLEX": { "starters": 1, "max": null },
+      "K": { "starters": 1, "max": 3 },
+      "DST": { "starters": 1, "max": 3 }
+    }
+  },
+  "scoring": {
+    "passing": {
+      "yards": 0.04,
+      "td": 4,
+      "int": -2,
+      "twoPoint": 2
+    },
+    "rushing": {
+      "yards": 0.1,
+      "td": 6,
+      "twoPoint": 2
+    },
+    "receiving": {
+      "yards": 0.1,
+      "receptions": 1,
+      "td": 6,
+      "twoPoint": 2
+    },
+    "kicking": {
+      "pat": 1,
+      "fgMiss": -1,
+      "fg0_39": 3,
+      "fg40_49": 4,
+      "fg50_59": 5,
+      "fg60_plus": 6
+    },
+    "defense": {
+      "sack": 1,
+      "int": 2,
+      "fumbleRec": 2,
+      "safety": 2,
+      "td": 6,
+      "block": 2,
+      "pointsAllowed": {
+        "0": 5,
+        "1_6": 4,
+        "7_13": 3,
+        "14_17": 1,
+        "18_27": 0,
+        "28_34": -1,
+        "35_45": -3,
+        "46_plus": -5
+      },
+      "yardsAllowed": {
+        "under100": 5,
+        "100_199": 3,
+        "200_299": 2,
+        "300_349": 0,
+        "350_399": -1,
+        "400_449": -3,
+        "450_499": -5,
+        "500_549": -6,
+        "550_plus": -7
+      }
+    }
+  },
+  "waivers": {
+    "period": "1 Day",
+    "order": "Reset Each Week to Inverse Order of Standings",
+    "acquisitionLimit": "No Limit"
+  },
+  "trades": {
+    "limit": "No Limit",
+    "deadline": "2025-11-26",
+    "reviewPeriod": "1 Day",
+    "vetoVotes": 4
+  },
+  "season": {
+    "regularSeasonWeeks": 14,
+    "playoffTeams": 4,
+    "playoffWeeks": {
+      "round1": 2,
+      "championship": 2
+    }
+  },
+  "teams": [
+    "The Doublechamp Zay My Name",
+    "Team 2", 
+    "The Avengers",
+    "broussards avengers",
+    "Cajun mafia",
+    "Team Faulk",
+    "WHO DATS",
+    "Rome Zone",
+    "Maurice'es nuts",
+    "Coop On Cruz'n",
+    "Team 12",
+    "Team 13"
+  ]
+}
